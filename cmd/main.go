@@ -7,9 +7,10 @@ import (
 )
 
 func Handler(request events.CloudWatchEvent) {
-	scheduledGet.ScheduledGetWithDynamoDB("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv")
+	scheduledGet.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test")
 }
 
 func main() {
+	scheduledGet.GenerateAWSClients("dynamoDB")
 	lambda.Start(Handler)
 }
