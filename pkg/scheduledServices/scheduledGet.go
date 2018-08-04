@@ -51,7 +51,7 @@ func WithDynamoDBGetLatest(url string, item string, client *clientsStruct) {
 	fmt.Println(lastModified)
 	FetchDynamoDBLastModified("lastUpdate", item, client)
 	PutDynamoDBLastModified("lastUpdate", item, "testTime2", client)
-	FetchMapFileFromS3("shortedappjmk", "testCsv.csv", client, "")
+	// FetchMapFileFromS3("shortedapp", "testCsv.csv", client, "")
 }
 
 // FetchDynamoDBLastModified pulls latest field update date
