@@ -1,4 +1,4 @@
-package scheduledGet
+package scheduledget
 
 import (
 	"testing"
