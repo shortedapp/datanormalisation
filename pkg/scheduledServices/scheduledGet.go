@@ -3,6 +3,7 @@ package scheduledget
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -112,7 +113,7 @@ func PutDynamoDBLastModified(tableName string, keyName string, time string, clie
 
 	if err == nil {
 		log.Info("PutDynamoDBLastModified",
-			fmt.Sprintf("put item: %v\n", res))
+			fmt.Sprintf("put item: %v", res))
 	}
 
 	return err
@@ -121,14 +122,31 @@ func PutDynamoDBLastModified(tableName string, keyName string, time string, clie
 // PutKinesisRecords puts records into a kinesis stream
 // inputs:
 //	- stream: the name of the stream to write into
-//	- partitionKeys: an array of available partition keys
-//	- blobData: an array of blob data ([]byte format)
-//	- partFunc: a function to do the logical partitioning
+//	- blobData: an array of blob data (must be a struct that can be json encoded)
 //	- valueStruct: an structure to unmarshal the data into
-func PutKinesisRecords(stream *string, partitionKeys []*string, blobData [][]byte, partFunc func([]interface{})) {
-	// kinesis.PutRecordsInput{
-	fmt.Println("TODO")
-	// }
+func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []string, client *clientsStruct) error {
+	var streamRecord kinesis.PutRecordsRequestEntry
+	recordsList := make([]*kinesis.PutRecordsRequestEntry, 0, len(blobData))
+	//Create Records
+	for i, record := range blobData {
+		jsonRecord, err := json.Marshal(record)
+		if err != nil {
+			log.Warn("PutKinesisRecords", "failed to convert struct into []byte")
+			return err
+		}
+		streamRecord = kinesis.PutRecordsRequestEntry{
+			Data:         jsonRecord,
+			PartitionKey: &partitionKeys[i],
+		}
+		recordsList = append(recordsList, &streamRecord)
+	}
+
+	log.Info("PutKinesisRecords", fmt.Sprintf("putting records to stream %v", *stream))
+	_, err := client.kinesisClient.PutRecords(&kinesis.PutRecordsInput{
+		Records:    recordsList,
+		StreamName: stream,
+	})
+	return err
 }
 
 // FetchJSONFileFromS3 loads a json mapping file to generate a key value reference
@@ -136,7 +154,7 @@ func PutKinesisRecords(stream *string, partitionKeys []*string, blobData [][]byt
 //	- bucketName: the name of the bucket the file is being retrieved from
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
-//	- valueStruct: an structure to unmarshal the data into
+//	- f: a function to unmarshal the data
 func FetchJSONFileFromS3(bucketName string, key string, client *clientsStruct,
 	f func([]byte) (interface{}, error)) (interface{}, error) {
 
@@ -169,7 +187,7 @@ func FetchJSONFileFromS3(bucketName string, key string, client *clientsStruct,
 //	- bucketName: the name of the bucket the file is being retrieved from
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
-//	- valueStruct: an structure to unmarshal the data into
+//	- f: a function to unmarshal the data
 func FetchCSVFileFromS3(bucketName string, key string, client *clientsStruct,
 	f func([][]string) (interface{}, error)) (interface{}, error) {
 
@@ -205,4 +223,26 @@ func FetchCSVFileFromS3(bucketName string, key string, client *clientsStruct,
 		log.Info("FetchJSONFileFromS3", "failed to unmarshal the s3 object")
 	}
 	return result, err
+}
+
+// PutFileToS3 puts a file up to s3
+// inputs:
+//	- bucketName: the name of the bucket the file is being put to
+//	- key: the key for the s3 object
+//	- client: client structure containing relevant s3 clients
+//	- data: a []byte array of the data
+func PutFileToS3(bucketName string, key string, client *clientsStruct, data []byte) error {
+
+	//Create the file to upload to s3
+	res, err := client.s3UploadClient.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(data),
+	})
+
+	if err == nil {
+		log.Info("PutFileToS3", fmt.Sprintf("file successfully uploaded to %v", res.Location))
+	}
+
+	return err
 }

@@ -9,6 +9,11 @@ type Share struct {
 	Code string `json:"code"`
 }
 
+type Short struct {
+	Name  string  `json:"name"`
+	Value float32 `json:"value"`
+}
+
 func UnmarshalShares(b []byte) (interface{}, error) {
 	s1 := make([]*Share, 0)
 	err := json.Unmarshal(b, &s1)
