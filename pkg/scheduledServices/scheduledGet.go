@@ -19,7 +19,7 @@ import (
 	"net/http"
 )
 
-type clientsStruct struct {
+type ClientsStruct struct {
 	dynamoclient     *dynamodb.DynamoDB
 	s3DownloadClient *s3manager.Downloader
 	s3UploadClient   *s3manager.Uploader
@@ -29,9 +29,9 @@ type clientsStruct struct {
 var logger log.LoggerImpl
 
 // GenerateAWSClients generates new AWS clients based on string array
-func GenerateAWSClients(clients ...string) *clientsStruct {
+func GenerateAWSClients(clients ...string) *ClientsStruct {
 	sess := session.Must(session.NewSession())
-	clientStruct := new(clientsStruct)
+	clientStruct := new(ClientsStruct)
 	for _, client := range clients {
 		switch client {
 		case "s3":
@@ -51,7 +51,7 @@ func GenerateAWSClients(clients ...string) *clientsStruct {
 // inputs:
 //	url: url for the request
 //	item: dynamoDB item to be updated
-func WithDynamoDBGetLatest(url string, key string, client *clientsStruct) (*http.Response, error) {
+func WithDynamoDBGetLatest(url string, key string, client *ClientsStruct) (*http.Response, error) {
 	resp, err := http.Head(url)
 	if err != nil {
 		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
@@ -67,28 +67,30 @@ func WithDynamoDBGetLatest(url string, key string, client *clientsStruct) (*http
 	}
 
 	//TODO check the dynamodb table and then decide whether to continue or not
-	dynamoLastModified, err := FetchDynamoDBLastModified("lastUpdate", key, client)
-	if err != nil {
-		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
-		return nil, err
-	}
-	dynamoLastModifiedTime, err := time.Parse(time.RFC3339, dynamoLastModified)
-	if err != nil {
-		log.Info("WithDynamoDBGetLatest", "unable to parse dynamo last modified date")
-		return nil, err
-	}
+	// dynamoLastModified, err := FetchDynamoDBLastModified("lastUpdate", key, client)
+	// if err != nil {
+	// 	log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
+	// 	return nil, err
+	// }
 
-	if lastModifiedTime.UTC().Unix() > dynamoLastModifiedTime.UTC().Unix() {
-		updateTime := lastModifiedTime.Format(time.RFC3339)
-		PutDynamoDBLastModified("lastUpdate", key, updateTime, client)
-		resp, err := http.Get(url)
-		return resp, err
-	}
-	return nil, err
+	// dynamoLastModifiedTime, err := time.Parse(time.RFC3339, dynamoLastModified)
+	// if err != nil {
+	// 	log.Info("WithDynamoDBGetLatest", "unable to parse dynamo last modified date")
+	// 	return nil, err
+	// }
+
+	// if lastModifiedTime.UTC().Unix() < dynamoLastModifiedTime.UTC().Unix() {
+	updateTime := lastModifiedTime.Format(time.RFC3339)
+	PutDynamoDBLastModified("lastUpdate", key, updateTime, client)
+	resp, err = http.Get(url)
+	return resp, err
+	// }
+
+	// return nil, err
 }
 
 // FetchDynamoDBLastModified pulls latest field update date
-func FetchDynamoDBLastModified(tableName string, keyName string, client *clientsStruct) (string, error) {
+func FetchDynamoDBLastModified(tableName string, keyName string, client *ClientsStruct) (string, error) {
 	resp, err := client.dynamoclient.GetItem(&dynamodb.GetItemInput{
 		Key:       map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName}},
 		TableName: &tableName,
@@ -104,7 +106,7 @@ func FetchDynamoDBLastModified(tableName string, keyName string, client *clients
 }
 
 // PutDynamoDBLastModified updates latest field update date
-func PutDynamoDBLastModified(tableName string, keyName string, time string, client *clientsStruct) error {
+func PutDynamoDBLastModified(tableName string, keyName string, time string, client *ClientsStruct) error {
 	res, err := client.dynamoclient.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName},
 			"date": &dynamodb.AttributeValue{S: &time}},
@@ -124,7 +126,7 @@ func PutDynamoDBLastModified(tableName string, keyName string, time string, clie
 //	- stream: the name of the stream to write into
 //	- blobData: an array of blob data (must be a struct that can be json encoded)
 //	- valueStruct: an structure to unmarshal the data into
-func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []string, client *clientsStruct) error {
+func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []string, client *ClientsStruct) error {
 	var streamRecord kinesis.PutRecordsRequestEntry
 	recordsList := make([]*kinesis.PutRecordsRequestEntry, 0, len(blobData))
 	//Create Records
@@ -155,7 +157,7 @@ func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []s
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
 //	- f: a function to unmarshal the data
-func FetchJSONFileFromS3(bucketName string, key string, client *clientsStruct,
+func FetchJSONFileFromS3(bucketName string, key string, client *ClientsStruct,
 	f func([]byte) (interface{}, error)) (interface{}, error) {
 
 	//create a buffer to write content
@@ -188,7 +190,7 @@ func FetchJSONFileFromS3(bucketName string, key string, client *clientsStruct,
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
 //	- f: a function to unmarshal the data
-func FetchCSVFileFromS3(bucketName string, key string, client *clientsStruct,
+func FetchCSVFileFromS3(bucketName string, key string, client *ClientsStruct,
 	f func([][]string) (interface{}, error)) (interface{}, error) {
 
 	//create a buffer to write content
@@ -210,6 +212,7 @@ func FetchCSVFileFromS3(bucketName string, key string, client *clientsStruct,
 
 	//Convert the byte array into a reader
 	reader := csv.NewReader(bytes.NewReader(buf.Bytes()))
+	reader.FieldsPerRecord = -1
 	res, err := reader.ReadAll()
 	if err != nil {
 		log.Info("FetchJSONFileFromS3", "failed to read the csv file")
@@ -231,7 +234,7 @@ func FetchCSVFileFromS3(bucketName string, key string, client *clientsStruct,
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
 //	- data: a []byte array of the data
-func PutFileToS3(bucketName string, key string, client *clientsStruct, data []byte) error {
+func PutFileToS3(bucketName string, key string, client *ClientsStruct, data []byte) error {
 
 	//Create the file to upload to s3
 	res, err := client.s3UploadClient.Upload(&s3manager.UploadInput{
