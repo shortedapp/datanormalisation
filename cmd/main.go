@@ -1,23 +1,29 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/shortedapp/datanormalization/internal/sharecodes"
+	"github.com/shortedapp/datanormalization/internal/sharedata"
+	"github.com/shortedapp/datanormalization/pkg/awsutils"
 	log "github.com/shortedapp/datanormalization/pkg/loggingutil"
-	"github.com/shortedapp/datanormalization/pkg/scheduledServices"
 )
 
-func GetShareCodes(clients *scheduledget.ClientsStruct, codesReady chan<- map[string]*sharecodes.ShareCsv) {
-	res, err := scheduledget.FetchCSVFileFromS3("shortedappjmk", "ASXListedCompanies.csv", clients, sharecodes.UnmarshalSharesCSV)
+//GetShareCodes - Get Short position data from ASIC
+// inputs:
+//	- clients: a pointer to the pregenerated AWS clients
+//	- shortsReady: a channel to place the goroutine result
+func GetShareCodes(clients *awsutils.ClientsStruct, codesReady chan<- map[string]*sharedata.ShareCsv) {
+	res, err := awsutils.FetchCSVFileFromS3("shortedappjmk", "ASXListedCompanies.csv", clients, sharedata.UnmarshalSharesCSV)
 	if err != nil {
 
 	}
-	result := res.([]*sharecodes.ShareCsv)
-	resultMap := make(map[string]*sharecodes.ShareCsv)
+	result := res.([]*sharedata.ShareCsv)
+	resultMap := make(map[string]*sharedata.ShareCsv)
 	for _, record := range result {
 		resultMap[record.Code] = record
 	}
@@ -25,16 +31,26 @@ func GetShareCodes(clients *scheduledget.ClientsStruct, codesReady chan<- map[st
 	codesReady <- resultMap
 }
 
-func GetShortPositions(clients *scheduledget.ClientsStruct, shortsReady chan<- map[string]*sharecodes.AsicShortCsv) {
-	resp, err := scheduledget.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test", clients)
-	// fmt.Println(res2.Body)
+//GetShortPositions - Get Short position data from ASIC
+// inputs:
+//	- clients: a pointer to the pregenerated AWS clients
+//	- shortsReady: a channel to place the goroutine result
+func GetShortPositions(clients *awsutils.ClientsStruct, shortsReady chan<- map[string]*sharedata.AsicShortCsv) {
+	resp, err := awsutils.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test", clients)
+	if resp == nil && err == nil {
+		//No Update required
+		shortsReady <- nil
+		return
+	}
 	b, err := ioutil.ReadAll(resp.Body)
+	b = bytes.Replace(b, []byte("\x00"), []byte(""), -1)
+
 	if err != nil {
 		fmt.Println(err)
 	}
-	asicShorts, err := sharecodes.UnmarshalAsicShortsCSV(b)
+	asicShorts, err := sharedata.UnmarshalAsicShortsCSV(b)
 
-	resultMap := make(map[string]*sharecodes.AsicShortCsv)
+	resultMap := make(map[string]*sharedata.AsicShortCsv)
 	for _, short := range asicShorts {
 		resultMap[short.Code] = short
 	}
@@ -42,12 +58,20 @@ func GetShortPositions(clients *scheduledget.ClientsStruct, shortsReady chan<- m
 	shortsReady <- resultMap
 }
 
-func MergeShortData(shortsReady <-chan map[string]*sharecodes.AsicShortCsv, codesReady <-chan map[string]*sharecodes.ShareCsv) ([]*sharecodes.CombinedShortJson, error) {
+//MergeShortData - Merges data from ASIC and ASX
+// inputs:
+//	- shortsReady: channel to signal shorts data has been retrieved and processed
+//	- codesReady: channel to signal codes data has been retrieved and processed
+// Output:
+//	- Array of CombinedShortJSON pointers
+func MergeShortData(shortsReady <-chan map[string]*sharedata.AsicShortCsv, codesReady <-chan map[string]*sharedata.ShareCsv) []*sharedata.CombinedShortJSON {
 	shorts := <-shortsReady
+	if shorts == nil {
+		log.Info("MergeShortData", "No updated short data to merge")
+		return nil
+	}
 	codes := <-codesReady
-	// fmt.Println(shorts)
-	//fmt.Println(codes)
-	result := make([]*sharecodes.CombinedShortJson, 0, len(codes))
+	result := make([]*sharedata.CombinedShortJSON, 0, len(codes))
 	for _, key := range codes {
 		val, pres := shorts[key.Code]
 		var shortsVal, totalVal int64
@@ -57,7 +81,7 @@ func MergeShortData(shortsReady <-chan map[string]*sharecodes.AsicShortCsv, code
 			totalVal = val.Total
 			percentVal = val.Percent
 		}
-		combinedShort := &sharecodes.CombinedShortJson{
+		combinedShort := &sharedata.CombinedShortJSON{
 			Code:     key.Code,
 			Name:     key.Name,
 			Shorts:   shortsVal,
@@ -67,22 +91,36 @@ func MergeShortData(shortsReady <-chan map[string]*sharecodes.AsicShortCsv, code
 		}
 		result = append(result, combinedShort)
 	}
-	return result, nil
+	return result
 }
 
+//Handler - the main function handler, triggered by cloudwatch event
 func Handler(request events.CloudWatchEvent) {
-	clients := scheduledget.GenerateAWSClients("dynamoDB", "s3", "kinesis")
+	clients := awsutils.GenerateAWSClients("dynamoDB", "s3", "kinesis")
 
 	//Get Share Codes
-	codesReady := make(chan map[string]*sharecodes.ShareCsv, 1)
+	codesReady := make(chan map[string]*sharedata.ShareCsv, 1)
 	go GetShareCodes(clients, codesReady)
 
 	//Get Short positions
-	shortsReady := make(chan map[string]*sharecodes.AsicShortCsv, 1)
+	shortsReady := make(chan map[string]*sharedata.AsicShortCsv, 1)
 	go GetShortPositions(clients, shortsReady)
 
-	_, err := MergeShortData(shortsReady, codesReady)
-	log.Warn("Handler", fmt.Sprintf("%v", err))
+	//Merge two data sets
+	mergeShortData := MergeShortData(shortsReady, codesReady)
+	if mergeShortData == nil {
+		log.Info("Handler", "nil return from mergeShortData")
+		return
+	}
+
+	//Marshal the data into JSON
+	shortDataBytes, err := json.Marshal(mergeShortData)
+	if err != nil {
+		log.Info("Handler", "unable to marshal short data into JSON")
+	}
+
+	//Push to S3
+	awsutils.PutFileToS3("shortedappjmk", "combinedshorts.json", clients, shortDataBytes)
 }
 
 func main() {

@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 )
 
+//ReadCSVBytesNoChecks - Read CSV byte array into a [][]string
 func ReadCSVBytesNoChecks(b []byte, sep rune) ([][]string, error) {
 	reader := csv.NewReader(bytes.NewReader(b))
 	//Disable field length checks
