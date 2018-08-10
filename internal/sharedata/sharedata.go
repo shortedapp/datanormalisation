@@ -57,7 +57,7 @@ type lengthError struct {
 }
 
 func (e *lengthError) Error() string {
-	return fmt.Sprintf("len is too short: %i", e.len)
+	return fmt.Sprintf("len is too short: %v", e.len)
 }
 
 //Parse - Parse CSV information into ShareCsv struct
@@ -82,18 +82,21 @@ func (s *AsicShortCsv) Parse(str []string) error {
 	short, err := strconv.ParseInt(str[2], 10, 64)
 	if err != nil {
 		log.Info("Parse-AsicShortCSV", "unable to convert short data to int64")
+		return err
 	}
 	s.Shorts = short
 
 	total, err := strconv.ParseInt(str[3], 10, 64)
 	if err != nil {
 		log.Info("Parse-AsicShortCSV", "unable to convert total share data to int64")
+		return err
 	}
 	s.Total = total
 	strconv.ParseFloat(str[4], 32)
 	percent, err := strconv.ParseFloat(str[4], 32)
 	if err != nil {
 		log.Info("Parse-AsicShortCSV", "unable to convert percentage short data to float32")
+		return err
 	}
 	s.Percent = float32(percent)
 	return nil
@@ -138,7 +141,7 @@ func UnmarshalAsicShortsCSV(b []byte) ([]*AsicShortCsv, error) {
 
 //UnmarshalShortsJSON - Unmarshal Asic Shorts JSON information into a structure
 func UnmarshalShortsJSON(b []byte) (interface{}, error) {
-	s1 := make([]*ShareJSON, 0)
+	s1 := make([]*AsicShortJSON, 0)
 	err := json.Unmarshal(b, &s1)
 	return s1, err
 }

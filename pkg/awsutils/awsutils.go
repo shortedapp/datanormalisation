@@ -45,13 +45,17 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 	return clientStruct
 }
 
+func (client *ClientsStruct) callEndpoint(url string) (*http.Response, error) {
+	return http.Head(url)
+}
+
 // WithDynamoDBGetLatest Checks the last updated time of the url, checks dynamoDB for last recorded record update
 // if stale, fetchs record and updates the dynamoDB key
 // inputs:
 //	url: url for the request
 //	item: dynamoDB item to be updated
-func WithDynamoDBGetLatest(url string, key string, client *ClientsStruct) (*http.Response, error) {
-	resp, err := http.Head(url)
+func (client *ClientsStruct) WithDynamoDBGetLatest(url string, key string) (*http.Response, error) {
+	resp, err := client.callEndpoint(url)
 	if err != nil {
 		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
 		return nil, err
@@ -66,7 +70,7 @@ func WithDynamoDBGetLatest(url string, key string, client *ClientsStruct) (*http
 	}
 
 	//check the dynamodb table and then decide whether to continue or not
-	dynamoLastModified, err := FetchDynamoDBLastModified("lastUpdate", key, client)
+	dynamoLastModified, err := client.FetchDynamoDBLastModified("lastUpdate", key)
 	if err != nil {
 		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
 		return nil, err
@@ -80,7 +84,7 @@ func WithDynamoDBGetLatest(url string, key string, client *ClientsStruct) (*http
 
 	if lastModifiedTime.UTC().Unix() < dynamoLastModifiedTime.UTC().Unix() {
 		updateTime := lastModifiedTime.Format(time.RFC3339)
-		PutDynamoDBLastModified("lastUpdate", key, updateTime, client)
+		client.PutDynamoDBLastModified("lastUpdate", key, updateTime)
 		resp, err = http.Get(url)
 		return resp, err
 	}
@@ -89,7 +93,7 @@ func WithDynamoDBGetLatest(url string, key string, client *ClientsStruct) (*http
 }
 
 // FetchDynamoDBLastModified pulls latest field update date
-func FetchDynamoDBLastModified(tableName string, keyName string, client *ClientsStruct) (string, error) {
+func (client *ClientsStruct) FetchDynamoDBLastModified(tableName string, keyName string) (string, error) {
 	resp, err := client.dynamoclient.GetItem(&dynamodb.GetItemInput{
 		Key:       map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName}},
 		TableName: &tableName,
@@ -110,7 +114,7 @@ func FetchDynamoDBLastModified(tableName string, keyName string, client *Clients
 //	- keyName: the key to write to
 //	- time: the time to update the record to
 //	- client: a point to the client structure
-func PutDynamoDBLastModified(tableName string, keyName string, time string, client *ClientsStruct) error {
+func (client *ClientsStruct) PutDynamoDBLastModified(tableName string, keyName string, time string) error {
 	res, err := client.dynamoclient.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName},
 			"date": &dynamodb.AttributeValue{S: &time}},
@@ -130,7 +134,7 @@ func PutDynamoDBLastModified(tableName string, keyName string, time string, clie
 //	- stream: the name of the stream to write into
 //	- blobData: an array of blob data (must be a struct that can be json encoded)
 //	- valueStruct: an structure to unmarshal the data into
-func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []string, client *ClientsStruct) error {
+func (client *ClientsStruct) PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []string) error {
 	var streamRecord kinesis.PutRecordsRequestEntry
 	recordsList := make([]*kinesis.PutRecordsRequestEntry, 0, len(blobData))
 	//Create Records
@@ -159,9 +163,8 @@ func PutKinesisRecords(stream *string, blobData []interface{}, partitionKeys []s
 // inputs:
 //	- bucketName: the name of the bucket the file is being retrieved from
 //	- key: the key for the s3 object
-//	- client: client structure containing relevant s3 clients
 //	- f: a function to unmarshal the data
-func FetchJSONFileFromS3(bucketName string, key string, client *ClientsStruct,
+func (client *ClientsStruct) FetchJSONFileFromS3(bucketName string, key string,
 	f func([]byte) (interface{}, error)) (interface{}, error) {
 
 	//create a buffer to write content
@@ -194,7 +197,7 @@ func FetchJSONFileFromS3(bucketName string, key string, client *ClientsStruct,
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
 //	- f: a function to unmarshal the data
-func FetchCSVFileFromS3(bucketName string, key string, client *ClientsStruct,
+func (client *ClientsStruct) FetchCSVFileFromS3(bucketName string, key string,
 	f func([][]string) (interface{}, error)) (interface{}, error) {
 
 	//create a buffer to write content
@@ -238,7 +241,7 @@ func FetchCSVFileFromS3(bucketName string, key string, client *ClientsStruct,
 //	- key: the key for the s3 object
 //	- client: client structure containing relevant s3 clients
 //	- data: a []byte array of the data
-func PutFileToS3(bucketName string, key string, client *ClientsStruct, data []byte) error {
+func (client *ClientsStruct) PutFileToS3(bucketName string, key string, data []byte) error {
 
 	//Create the file to upload to s3
 	res, err := client.s3UploadClient.Upload(&s3manager.UploadInput{

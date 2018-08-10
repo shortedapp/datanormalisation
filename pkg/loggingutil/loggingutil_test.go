@@ -68,10 +68,91 @@ func TestInfo(t *testing.T) {
 		Logger.Level = testCondition.level
 		Logger.Vlogging = testCondition.vlogging
 		log := testingutil.CaptureStandardErr(func() { Info(testCondition.function, testCondition.msg) }, Logger.StdLogger)
-		fmt.Println("log: " + log)
-		fmt.Println("msg: " + testCondition.msg)
-		fmt.Println(strings.Contains(log, testCondition.msg))
 		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.msg), fmt.Sprintf("test %v", i))
 		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.function), fmt.Sprintf("test %v", i))
 	}
+}
+func TestDebug(t *testing.T) {
+
+	var loggerCreateTests = []struct {
+		level    int
+		vlogging bool
+		function string
+		msg      string
+		output   bool
+	}{
+		{1, true, "testA", "msgA", true},
+		{2, true, "testB", "msgB", false},
+		{1, false, "testC", "msgC", false},
+	}
+
+	for i, testCondition := range loggerCreateTests {
+		Logger.Level = testCondition.level
+		Logger.Vlogging = testCondition.vlogging
+		log := testingutil.CaptureStandardErr(func() { Debug(testCondition.function, testCondition.msg) }, Logger.StdLogger)
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.msg), fmt.Sprintf("test %v", i))
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.function), fmt.Sprintf("test %v", i))
+	}
+}
+
+func TestWarn(t *testing.T) {
+
+	var loggerCreateTests = []struct {
+		level    int
+		vlogging bool
+		function string
+		msg      string
+		output   bool
+	}{
+		{2, true, "testA", "msgA", true},
+		{3, true, "testB", "msgB", true},
+		{1, false, "testC", "msgC", false},
+	}
+
+	for i, testCondition := range loggerCreateTests {
+		Logger.Level = testCondition.level
+		Logger.Vlogging = testCondition.vlogging
+		log := testingutil.CaptureStandardErr(func() { Warn(testCondition.function, testCondition.msg) }, Logger.StdLogger)
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.msg), fmt.Sprintf("test %v", i))
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.function), fmt.Sprintf("test %v", i))
+	}
+}
+
+func TestError(t *testing.T) {
+
+	var loggerCreateTests = []struct {
+		level    int
+		vlogging bool
+		function string
+		msg      string
+		output   bool
+	}{
+		{1, true, "testA", "msgA", true},
+		{1, false, "testC", "msgC", true},
+	}
+
+	for i, testCondition := range loggerCreateTests {
+		Logger.Level = testCondition.level
+		Logger.Vlogging = testCondition.vlogging
+		log := testingutil.CaptureStandardErr(func() { Error(testCondition.function, testCondition.msg) }, Logger.StdLogger)
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.msg), fmt.Sprintf("test %v", i))
+		assert.Equal(t, testCondition.output, strings.Contains(log, testCondition.function), fmt.Sprintf("test %v", i))
+	}
+}
+
+func TestJoinLogOutput(t *testing.T) {
+	var stringsForTest = []struct {
+		function string
+		msg      string
+		output   string
+	}{
+		{"testA", " msgA", "testA msgA"},
+		{"testC", " msgC", "testC msgC"},
+	}
+
+	for _, testCondition := range stringsForTest {
+		output := joinLogOutput(testCondition.function, testCondition.msg)
+		assert.Equal(t, testCondition.output, output)
+	}
+
 }

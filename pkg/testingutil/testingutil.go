@@ -7,12 +7,13 @@ import (
 )
 
 //CaptureStandardErr - Capture the output from standard err (i.e logging) for testing
-func CaptureStandardErr(f func()) string {
+func CaptureStandardErr(f func(), logger *log.Logger) string {
 	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	f()
 	defer func() {
-		log.SetOutput(os.Stderr)
+		logger.SetOutput(os.Stderr)
 	}()
+	logger.SetOutput(&buf)
+	f()
+
 	return buf.String()
 }

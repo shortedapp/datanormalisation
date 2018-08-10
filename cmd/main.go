@@ -18,11 +18,11 @@ import (
 //	- clients: a pointer to the pregenerated AWS clients
 //	- shortsReady: a channel to place the goroutine result
 func GetShareCodes(clients *awsutils.ClientsStruct, codesReady chan<- map[string]*sharedata.ShareCsv) {
-	res, err := awsutils.FetchCSVFileFromS3("shortedappjmk", "ASXListedCompanies.csv", clients, sharedata.UnmarshalSharesCSV)
+	resp, err := clients.FetchCSVFileFromS3("shortedappjmk", "ASXListedCompanies.csv", sharedata.UnmarshalSharesCSV)
 	if err != nil {
 
 	}
-	result := res.([]*sharedata.ShareCsv)
+	result := resp.([]*sharedata.ShareCsv)
 	resultMap := make(map[string]*sharedata.ShareCsv)
 	for _, record := range result {
 		resultMap[record.Code] = record
@@ -36,7 +36,7 @@ func GetShareCodes(clients *awsutils.ClientsStruct, codesReady chan<- map[string
 //	- clients: a pointer to the pregenerated AWS clients
 //	- shortsReady: a channel to place the goroutine result
 func GetShortPositions(clients *awsutils.ClientsStruct, shortsReady chan<- map[string]*sharedata.AsicShortCsv) {
-	resp, err := awsutils.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test", clients)
+	resp, err := clients.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test")
 	if resp == nil && err == nil {
 		//No Update required
 		shortsReady <- nil
@@ -120,7 +120,7 @@ func Handler(request events.CloudWatchEvent) {
 	}
 
 	//Push to S3
-	awsutils.PutFileToS3("shortedappjmk", "combinedshorts.json", clients, shortDataBytes)
+	clients.PutFileToS3("shortedappjmk", "combinedshorts.json", shortDataBytes)
 }
 
 func main() {
