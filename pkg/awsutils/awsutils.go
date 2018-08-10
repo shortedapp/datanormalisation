@@ -12,19 +12,22 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
 	"net/http"
 )
 
 //ClientsStruct - Structure to hold the various AWS clients
 type ClientsStruct struct {
-	dynamoclient     *dynamodb.DynamoDB
-	s3DownloadClient *s3manager.Downloader
-	s3UploadClient   *s3manager.Uploader
-	kinesisClient    *kinesis.Kinesis
+	dynamoclient     dynamodbiface.DynamoDBAPI
+	s3DownloadClient s3manageriface.DownloaderAPI
+	s3UploadClient   s3manageriface.UploaderAPI
+	kinesisClient    kinesisiface.KinesisAPI
 }
 
 // GenerateAWSClients generates new AWS clients based on string array
