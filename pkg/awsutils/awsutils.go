@@ -24,7 +24,7 @@ import (
 
 //ClientsStruct - Structure to hold the various AWS clients
 type ClientsStruct struct {
-	dynamoclient     dynamodbiface.DynamoDBAPI
+	dynamoClient     dynamodbiface.DynamoDBAPI
 	s3DownloadClient s3manageriface.DownloaderAPI
 	s3UploadClient   s3manageriface.UploaderAPI
 	kinesisClient    kinesisiface.KinesisAPI
@@ -40,7 +40,7 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 			clientStruct.s3DownloadClient = s3manager.NewDownloader(sess)
 			clientStruct.s3UploadClient = s3manager.NewUploader(sess)
 		case "dynamoDB":
-			clientStruct.dynamoclient = dynamodb.New(sess)
+			clientStruct.dynamoClient = dynamodb.New(sess)
 		case "kinesis":
 			clientStruct.kinesisClient = kinesis.New(sess)
 		}
@@ -97,7 +97,7 @@ func (client *ClientsStruct) WithDynamoDBGetLatest(url string, key string) (*htt
 
 // FetchDynamoDBLastModified pulls latest field update date
 func (client *ClientsStruct) FetchDynamoDBLastModified(tableName string, keyName string) (string, error) {
-	resp, err := client.dynamoclient.GetItem(&dynamodb.GetItemInput{
+	resp, err := client.dynamoClient.GetItem(&dynamodb.GetItemInput{
 		Key:       map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName}},
 		TableName: &tableName,
 	})
@@ -107,7 +107,6 @@ func (client *ClientsStruct) FetchDynamoDBLastModified(tableName string, keyName
 			fmt.Sprintf("failed to fetch value from dynamodb table %s, key %s", tableName, keyName))
 		return "", err
 	}
-
 	return *resp.Item["date"].S, err
 }
 
@@ -118,7 +117,10 @@ func (client *ClientsStruct) FetchDynamoDBLastModified(tableName string, keyName
 //	- time: the time to update the record to
 //	- client: a point to the client structure
 func (client *ClientsStruct) PutDynamoDBLastModified(tableName string, keyName string, time string) error {
-	res, err := client.dynamoclient.PutItem(&dynamodb.PutItemInput{
+	if time == "" {
+		return fmt.Errorf("no time provided")
+	}
+	res, err := client.dynamoClient.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{"name_id": &dynamodb.AttributeValue{S: &keyName},
 			"date": &dynamodb.AttributeValue{S: &time}},
 		TableName: &tableName,
@@ -245,6 +247,10 @@ func (client *ClientsStruct) FetchCSVFileFromS3(bucketName string, key string,
 //	- client: client structure containing relevant s3 clients
 //	- data: a []byte array of the data
 func (client *ClientsStruct) PutFileToS3(bucketName string, key string, data []byte) error {
+	if data == nil {
+		log.Info("PutFileToS3", "missing data")
+		return fmt.Errorf("missing data")
+	}
 
 	//Create the file to upload to s3
 	res, err := client.s3UploadClient.Upload(&s3manager.UploadInput{
