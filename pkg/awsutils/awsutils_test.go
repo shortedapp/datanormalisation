@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -63,13 +64,29 @@ func (m *mockKinesisClient) PutRecords(record *kinesis.PutRecordsInput) (*kinesi
 }
 
 func (m *mockDynamoDBClient) PutItem(item *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+	if *item.TableName == "test2" {
+		return nil, fmt.Errorf("table does not exist")
+	}
 	return nil, nil
 }
 
 func (m *mockDynamoDBClient) GetItem(item *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
-	if item.TableName == "test" {
-		return nil, nil
+	if *item.TableName == "test" {
+		return nil, fmt.Errorf("table does not exist")
+	} else if *item.Key["name_id"].S == "testInvalid" {
+		//Test WithDynamoDBGetLatest invalid key
+		return nil, fmt.Errorf("key does not exist")
+	} else if *item.Key["name_id"].S == "testValid" {
+		//Test WithDynamoDBGetLatest valid return time
+		mapAttr := make(map[string]*dynamodb.AttributeValue)
+		time := "2018-08-11T13:22:41+00:00"
+		attr := dynamodb.AttributeValue{S: &time}
+		mapAttr["date"] = &attr
+		result := dynamodb.GetItemOutput{Item: mapAttr}
+		return &result, nil
 	}
+
+	//default return
 	mapAttr := make(map[string]*dynamodb.AttributeValue)
 	time := "2018/08/10 22:09:55.166"
 	attr := dynamodb.AttributeValue{S: &time}
@@ -77,19 +94,52 @@ func (m *mockDynamoDBClient) GetItem(item *dynamodb.GetItemInput) (*dynamodb.Get
 	result := dynamodb.GetItemOutput{Item: mapAttr}
 	return &result, nil
 }
+
+type testHttp struct{}
+
+func (t testHttp) RoundTrip(request *http.Request) (*http.Response, error) {
+	//Test  WithDynamoDBGetLatest valid head last modified time
+	if request.URL.String() == "127.0.0.1" {
+		header := http.Header{"Last-Modified": []string{"Sat, 11 Aug 2018 09:46:37 GMT"}}
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			Header:     header,
+		}, nil
+		//Test  WithDynamoDBGetLatest invalid head last modified time
+	} else if request.URL.String() == "127.0.0.2" {
+		header := http.Header{"Last-Modified": []string{"GMT"}}
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			Header:     header,
+		}, nil
+	} else if request.URL.String() == "127.0.0.3" {
+		header := http.Header{"Last-Modified": []string{"Sun, 12 Aug 2018 09:46:37 GMT"}}
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			Header:     header,
+		}, nil
+	}
+	return nil, fmt.Errorf("could not reach url")
+}
+
 func TestGenerateAWSClients(t *testing.T) {
 	testCsvs := []struct {
 		clients []string
 		isNil   []bool
 	}{
-		{[]string{"s3", "dynamoDB"}, []bool{false, false}},
-		{[]string{"s3"}, []bool{false, true}},
-		{[]string{}, []bool{true, true}},
+		{[]string{"s3", "dynamoDB", "kinesis"}, []bool{false, false, false}},
+		{[]string{"s3", "dynamoDB"}, []bool{false, false, true}},
+		{[]string{"s3"}, []bool{false, true, true}},
+		{[]string{}, []bool{true, true, true}},
 	}
 	for _, testCase := range testCsvs {
 		clients := GenerateAWSClients(testCase.clients...)
 		assert.Equal(t, testCase.isNil[0], clients.s3DownloadClient == nil)
 		assert.Equal(t, testCase.isNil[1], clients.dynamoClient == nil)
+		assert.Equal(t, testCase.isNil[2], clients.kinesisClient == nil)
 	}
 }
 
@@ -104,6 +154,11 @@ func TestFetchJSONFileFromS3(t *testing.T) {
 	assert.Equal(t, "[{\"name\":\"abc\", \"code\":\"ABC\", \"industry\": \"test\"},"+
 		"{\"name\":\"def\", \"code\":\"DEF\", \"industry\": \"test2\"}]", res)
 
+	res, err = client.FetchJSONFileFromS3("testJsonFetch", "a", func(b []byte) (interface{}, error) {
+		return nil, fmt.Errorf("error fetching")
+	})
+	assert.True(t, err != nil)
+
 }
 
 func TestFetchCSVFileFromS3(t *testing.T) {
@@ -117,6 +172,12 @@ func TestFetchCSVFileFromS3(t *testing.T) {
 	for i, str := range res.([][]string) {
 		assert.Equal(t, []string{"test" + string(i), "test" + string(i)}, str)
 	}
+
+	res, err = client.FetchCSVFileFromS3("testCsvFetch", "a", func(s [][]string) (interface{}, error) {
+		return nil, fmt.Errorf("error fetching")
+	})
+
+	assert.True(t, err != nil)
 
 }
 
@@ -151,6 +212,7 @@ func TestPutKinesisRecords(t *testing.T) {
 	}{
 		{"test", []string{"test", "test2"}, false},
 		{"test", []string{"test"}, false},
+		{"test", nil, false},
 	}
 	for i, test := range testCases {
 		var data []interface{}
@@ -182,6 +244,7 @@ func TestPutDynamoDBLastModified(t *testing.T) {
 	}{
 		{"test", "test", "", true},
 		{"test", "test", "2018/08/10 22:09:55.166", false},
+		{"test2", "test", "2018/08/10 22:09:55.166", true},
 	}
 	for _, test := range testCases {
 		err := client.PutDynamoDBLastModified(test.table, test.key, test.time)
@@ -196,14 +259,44 @@ func TestFetchDynamoDBLastModified(t *testing.T) {
 		table string
 		key   string
 		time  string
-		err   error
+		err   bool
 	}{
-		{"test", "test", "", fmt.Errorf("test")},
-		{"test2", "test", "2018/08/10 22:09:55.166", nil},
+		{"test", "test", "", true},
+		{"test2", "test", "2018/08/10 22:09:55.166", false},
 	}
 	for _, test := range testCases {
 		res, err := client.FetchDynamoDBLastModified(test.table, test.key)
 		assert.Equal(t, test.err, err != nil)
 		assert.Equal(t, test.time, res)
 	}
+}
+
+func TestWithDynamoDBGetLatest(t *testing.T) {
+	//setup http for testing
+	savedClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: testHttp{},
+	}
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+
+	testCases := []struct {
+		url  string
+		key  string
+		err  bool
+		resp bool
+	}{
+		{"127.0.0.2", "test", true, false},
+		{"127.0.0.1", "testInvalid", true, false},
+		{"127.0.0.1", "testValid", false, false},
+		{"127.0.0.3", "testValid", false, true},
+	}
+	for _, test := range testCases {
+		res, err := client.WithDynamoDBGetLatest(test.url, test.key)
+		assert.Equal(t, test.err, err != nil)
+		assert.Equal(t, test.resp, res != nil)
+	}
+
+	//return to default http
+	http.DefaultClient = savedClient
 }

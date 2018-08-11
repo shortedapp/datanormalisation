@@ -48,17 +48,13 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 	return clientStruct
 }
 
-func (client *ClientsStruct) callEndpoint(url string) (*http.Response, error) {
-	return http.Head(url)
-}
-
 // WithDynamoDBGetLatest Checks the last updated time of the url, checks dynamoDB for last recorded record update
 // if stale, fetchs record and updates the dynamoDB key
 // inputs:
 //	url: url for the request
 //	item: dynamoDB item to be updated
 func (client *ClientsStruct) WithDynamoDBGetLatest(url string, key string) (*http.Response, error) {
-	resp, err := client.callEndpoint(url)
+	resp, err := http.Head(url)
 	if err != nil {
 		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
 		return nil, err
@@ -85,7 +81,7 @@ func (client *ClientsStruct) WithDynamoDBGetLatest(url string, key string) (*htt
 		return nil, err
 	}
 
-	if lastModifiedTime.UTC().Unix() < dynamoLastModifiedTime.UTC().Unix() {
+	if lastModifiedTime.UTC().Unix() > dynamoLastModifiedTime.UTC().Unix() {
 		updateTime := lastModifiedTime.Format(time.RFC3339)
 		client.PutDynamoDBLastModified("lastUpdate", key, updateTime)
 		resp, err = http.Get(url)
