@@ -1,7 +1,7 @@
-# datanormalisation
-Golang service to normalise short position data
+# shortedfunctions
+Golang services to provide shorted functionality
 
-This service is deployed using the Serverless Framework. 
+These services are deployed using the Serverless Framework. 
 For installation instructions: https://serverless.com/framework/docs/getting-started/
 
 ## To package
