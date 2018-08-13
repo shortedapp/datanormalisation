@@ -1,5 +1,5 @@
 build:
-	env GOOS=linux vgo build -ldflags="-s -w" -o bin/datanormalize cmd/main.go
+	env GOOS=linux vgo build -ldflags="-s -w" -o bin/datanormalize cmd/datanormalise/main.go
 
 .PHONY: clean
 clean:

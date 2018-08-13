@@ -22,6 +22,16 @@ import (
 	"net/http"
 )
 
+type AwsUtiler interface {
+	WithDynamoDBGetLatest(string, string) (*http.Response, error)
+	FetchDynamoDBLastModified(string, string) (string, error)
+	PutDynamoDBLastModified(string, string, string) error
+	PutKinesisRecords(*string, []interface{}, []string) error
+	FetchJSONFileFromS3(string, string, func([]byte) (interface{}, error)) (interface{}, error)
+	FetchCSVFileFromS3(string, string, func([][]string) (interface{}, error)) (interface{}, error)
+	PutFileToS3(string, string, []byte) error
+}
+
 //ClientsStruct - Structure to hold the various AWS clients
 type ClientsStruct struct {
 	dynamoClient     dynamodbiface.DynamoDBAPI
