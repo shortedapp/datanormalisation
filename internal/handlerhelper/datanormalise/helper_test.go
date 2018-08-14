@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shortedapp/datanormalization/internal/sharedata"
-	log "github.com/shortedapp/datanormalization/pkg/loggingutil"
-	"github.com/shortedapp/datanormalization/pkg/testingutil"
+	"github.com/shortedapp/shortedfunctions/internal/sharedata"
+	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
+	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/shortedapp/datanormalization/internal/sharedata"
-	"github.com/shortedapp/datanormalization/pkg/awsutils"
-	log "github.com/shortedapp/datanormalization/pkg/loggingutil"
+	"github.com/shortedapp/shortedfunctions/internal/sharedata"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //Datanormalise - struct to enable testing

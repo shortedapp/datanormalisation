@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/shortedapp/datanormalization/pkg/loggingutil"
+	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -22,6 +22,7 @@ import (
 	"net/http"
 )
 
+//AwsUtiler - interface to define aws util functions
 type AwsUtiler interface {
 	WithDynamoDBGetLatest(string, string) (*http.Response, error)
 	FetchDynamoDBLastModified(string, string) (string, error)

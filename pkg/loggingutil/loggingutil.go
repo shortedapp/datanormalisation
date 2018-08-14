@@ -63,6 +63,7 @@ func createLoggerImpl(l LogContext, level int, vlogging bool) *LoggerImpl {
 	}
 }
 
+//Debug - Debug log output
 func Debug(function string, msg string) {
 	if Logger.Vlogging {
 		if Logger.Level <= 1 {

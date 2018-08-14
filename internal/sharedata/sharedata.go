@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shortedapp/datanormalization/pkg/csvutil"
-	log "github.com/shortedapp/datanormalization/pkg/loggingutil"
+	"github.com/shortedapp/shortedfunctions/pkg/csvutil"
+	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 // ShareJSON - JSON structure for ASX share code information
@@ -42,7 +42,7 @@ type ShareCsv struct {
 	Industry string
 }
 
-// CombinedShortJSON - JSON structure for combined ASIC short data and ASX code infromation
+// CombinedShortJSON - JSON structure for combined ASIC short data and ASX code information
 type CombinedShortJSON struct {
 	Code     string  `json:"code"`
 	Name     string  `json:"name"`
