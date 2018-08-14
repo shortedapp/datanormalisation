@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shortedapp/datanormalization/pkg/testingutil"
+	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,7 +23,7 @@ func TestCreateInstance(t *testing.T) {
 		}},
 	}
 	for _, testCondition := range loggerCreateTests {
-		//Test default is set and unchangable
+		//Test default is set and unchangeable
 		CreateInstance(LogContext{"TEST"}, testCondition.input.Level, testCondition.input.Vlogging)
 		assert.NotEqual(t, testCondition.input.Level, Logger.Level)
 		assert.NotEqual(t, testCondition.input.Vlogging, Logger.Vlogging)

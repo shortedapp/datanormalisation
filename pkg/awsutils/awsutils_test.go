@@ -33,7 +33,7 @@ type mockDynamoDBClient struct {
 	dynamodbiface.DynamoDBAPI
 }
 
-type fakeKinesisDoc struct {
+type FakeKinesisDoc struct {
 	name  string `json:"name"`
 	value string `json:"value"`
 }
@@ -204,7 +204,7 @@ func TestPutKinesisRecords(t *testing.T) {
 	mockKinesisClient := mockKinesisClient{}
 	client := ClientsStruct{kinesisClient: &mockKinesisClient}
 	stringMock := []string{"abc", "bcd"}
-	fakeJSONMock := []fakeKinesisDoc{{"test", "test"}}
+	fakeJSONMock := []FakeKinesisDoc{{"test", "test"}}
 	testCases := []struct {
 		stream        string
 		partitionKeys []string
