@@ -1,4 +1,6 @@
 # shortedfunctions
+[![Go Report Card](https://goreportcard.com/badge/github.com/shortedapp/shortedfunctions)](https://goreportcard.com/report/github.com/shortedapp/shortedfunctions)
+
 Golang services to provide shorted functionality
 
 These services are deployed using the Serverless Framework. 
