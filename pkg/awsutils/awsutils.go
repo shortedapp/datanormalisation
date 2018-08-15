@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
@@ -31,6 +32,8 @@ type AwsUtiler interface {
 	FetchJSONFileFromS3(string, string, func([]byte) (interface{}, error)) (interface{}, error)
 	FetchCSVFileFromS3(string, string, func([][]string) (interface{}, error)) (interface{}, error)
 	PutFileToS3(string, string, []byte) error
+	GetDynamoDBTableThroughput(string) (int, int)
+	PutDynamoDBItems(string, map[string]interface{}) error
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -271,4 +274,63 @@ func (client *ClientsStruct) PutFileToS3(bucketName string, key string, data []b
 	}
 
 	return err
+}
+
+// GetDynamoDBTableThroughput returns the read and write capacity units for a table
+// inputs:
+//	- tableName: the name of the dynamoDB table
+func (client *ClientsStruct) GetDynamoDBTableThroughput(tableName string) (int, int) {
+	table := dynamodb.DescribeTableInput{
+		TableName: &tableName,
+	}
+	result, err := client.dynamoClient.DescribeTable(&table)
+	if err != nil {
+		log.Info("GetDynamoDBTableThroughput", "unable to get table details")
+		return -1, -1
+	}
+	tableRead := result.Table.ProvisionedThroughput.ReadCapacityUnits
+	tableWrite := result.Table.ProvisionedThroughput.WriteCapacityUnits
+	return int(*tableRead), int(*tableWrite)
+}
+
+// GetDynamoDBTBatchPut returns the read and write capacity units for a table
+// inputs:
+//	- tableName: the name of the dynamoDB table
+func (client *ClientsStruct) PutDynamoDBItems(tableName string, values map[string]interface{}) error {
+	mapDynamo := make(map[string]*dynamodb.AttributeValue, len(values))
+	for key, val := range values {
+		mapDynamo[key] = mapAttributeValue(val)
+	}
+
+	_, err := client.dynamoClient.PutItem(&dynamodb.PutItemInput{
+		Item:      mapDynamo,
+		TableName: &tableName,
+	})
+
+	if err == nil {
+		log.Info("PutDynamoDBItems",
+			fmt.Sprintf("put code: %v", *mapDynamo["Code"].S))
+	}
+
+	return err
+}
+
+//mapAttributeValue - map values to their attribute type in dynamodb
+func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	case reflect.String:
+		strVal := val.(string)
+		return &dynamodb.AttributeValue{S: &strVal}
+	case reflect.Int:
+		intVal := fmt.Sprintf("%d", val.(int))
+		return &dynamodb.AttributeValue{N: &intVal}
+	case reflect.Int64:
+		intVal := fmt.Sprintf("%d", val.(int64))
+		return &dynamodb.AttributeValue{N: &intVal}
+	case reflect.Float32:
+		floatVal := fmt.Sprintf("%f", val.(float32))
+		return &dynamodb.AttributeValue{N: &floatVal}
+	}
+	return nil
 }

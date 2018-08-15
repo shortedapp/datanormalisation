@@ -44,6 +44,9 @@ func (m mockAwsUtilClients) PutFileToS3(string, string, []byte) error {
 	}
 	return nil
 }
+func (m mockAwsUtilClients) GetDynamoDBTableThroughput(string) (int, int) {
+	return 0, 0
+}
 
 type testHttp struct {
 	testCase int

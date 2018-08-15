@@ -122,6 +122,13 @@ func UnmarshalSharesJSON(b []byte) (interface{}, error) {
 	return s1, err
 }
 
+//UnmarshalSharesJSON - Unmarshal Shares Json information into a structure
+func UnmarshalCombinedShortsJSON(b []byte) (interface{}, error) {
+	s1 := make([]*CombinedShortJSON, 0)
+	err := json.Unmarshal(b, &s1)
+	return s1, err
+}
+
 //UnmarshalAsicShortsCSV - Unmarshal Asic Shorts CSV information into a structure
 func UnmarshalAsicShortsCSV(b []byte) ([]*AsicShortCsv, error) {
 	s, err := csvutil.ReadCSVBytesNoChecks(b, '\t')
