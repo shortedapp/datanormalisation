@@ -69,6 +69,18 @@ func (m *mockDynamoDBClient) PutItem(item *dynamodb.PutItemInput) (*dynamodb.Put
 	}
 	return nil, nil
 }
+func (m *mockDynamoDBClient) UpdateTable(item *dynamodb.UpdateTableInput) (*dynamodb.UpdateTableOutput, error) {
+	if *item.TableName == "test" {
+		return nil, fmt.Errorf("test")
+	}
+	return nil, nil
+}
+
+func (m *mockDynamoDBClient) DescribeTable(table *dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error) {
+	state := "ACTIVE"
+	tableDescription := &dynamodb.TableDescription{TableStatus: &state}
+	return &dynamodb.DescribeTableOutput{Table: tableDescription}, nil
+}
 
 func (m *mockDynamoDBClient) GetItem(item *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
 	if *item.TableName == "test" {
@@ -299,4 +311,50 @@ func TestWithDynamoDBGetLatest(t *testing.T) {
 
 	//return to default http
 	http.DefaultClient = savedClient
+}
+
+func TestPutDynamoDBItems(t *testing.T) {
+	attr := make(map[string]interface{})
+	attr["Code"] = "test"
+
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+
+	err := client.PutDynamoDBItems("test", attr)
+	assert.Equal(t, nil, err)
+}
+
+func TestUpdateDynamoDBTableCapacity(t *testing.T) {
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+
+	err := client.UpdateDynamoDBTableCapacity("test", 5, 5)
+	assert.Equal(t, "test", err.Error())
+
+	err = client.UpdateDynamoDBTableCapacity("test2", 5, 5)
+	assert.True(t, err == nil)
+}
+
+func TestMapAttributeValue(t *testing.T) {
+	testString := "test"
+	res := mapAttributeValue(testString)
+	assert.Equal(t, testString, *res.S)
+
+	testInt := 13
+	res = mapAttributeValue(testInt)
+	assert.Equal(t, fmt.Sprintf("%d", testInt), *res.N)
+
+	testInt64 := int64(13)
+	res = mapAttributeValue(testInt64)
+	assert.Equal(t, fmt.Sprintf("%d", testInt64), *res.N)
+
+	testFloat32 := float32(13.012)
+	res = mapAttributeValue(testFloat32)
+	assert.Equal(t, fmt.Sprintf("%f", testFloat32), *res.N)
+
+	testUint8 := uint8(1)
+	res = mapAttributeValue(testUint8)
+	var result *dynamodb.AttributeValue
+	assert.Equal(t, result, res)
+
 }

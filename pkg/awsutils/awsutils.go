@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
@@ -31,6 +32,9 @@ type AwsUtiler interface {
 	FetchJSONFileFromS3(string, string, func([]byte) (interface{}, error)) (interface{}, error)
 	FetchCSVFileFromS3(string, string, func([][]string) (interface{}, error)) (interface{}, error)
 	PutFileToS3(string, string, []byte) error
+	GetDynamoDBTableThroughput(string) (int64, int64)
+	PutDynamoDBItems(string, map[string]interface{}) error
+	UpdateDynamoDBTableCapacity(string, int64, int64) error
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -271,4 +275,94 @@ func (client *ClientsStruct) PutFileToS3(bucketName string, key string, data []b
 	}
 
 	return err
+}
+
+// GetDynamoDBTableThroughput returns the read and write capacity units for a table
+// inputs:
+//	- tableName: the name of the dynamoDB table
+func (client *ClientsStruct) GetDynamoDBTableThroughput(tableName string) (int64, int64) {
+	table := dynamodb.DescribeTableInput{
+		TableName: &tableName,
+	}
+	result, err := client.dynamoClient.DescribeTable(&table)
+	if err != nil {
+		log.Info("GetDynamoDBTableThroughput", "unable to get table details")
+		return 5, 5
+	}
+	tableRead := result.Table.ProvisionedThroughput.ReadCapacityUnits
+	tableWrite := result.Table.ProvisionedThroughput.WriteCapacityUnits
+	return int64(*tableRead), int64(*tableWrite)
+}
+
+// GetDynamoDBTBatchPut returns the read and write capacity units for a table
+// inputs:
+//	- tableName: the name of the dynamoDB table
+//	- values: a map of keys and values for attributes
+func (client *ClientsStruct) PutDynamoDBItems(tableName string, values map[string]interface{}) error {
+	mapDynamo := make(map[string]*dynamodb.AttributeValue, len(values))
+	for key, val := range values {
+		mapDynamo[key] = mapAttributeValue(val)
+	}
+
+	_, err := client.dynamoClient.PutItem(&dynamodb.PutItemInput{
+		Item:      mapDynamo,
+		TableName: &tableName,
+	})
+
+	if err == nil {
+		log.Info("PutDynamoDBItems",
+			fmt.Sprintf("put code: %v", *mapDynamo["Code"].S))
+	}
+
+	return err
+}
+
+// UpdateDynamoDBTableCapacity - updates the tables read and write capacity
+// inputs:
+//	- tableName: the name of the dynamoDB table
+// 	- writeCap: the write capacity units
+//	- readCap: the read capacity units
+func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readCap int64, writeCap int64) error {
+
+	_, err := client.dynamoClient.UpdateTable(&dynamodb.UpdateTableInput{
+		TableName:             &tableName,
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{WriteCapacityUnits: &writeCap, ReadCapacityUnits: &readCap},
+	})
+
+	if err != nil {
+		log.Info("UpdateDynamoDBTableCapacity", fmt.Sprintf("failed to provision change to table capacity err %v", err.Error()))
+		return err
+	}
+
+	ticker := time.NewTicker(1000 * time.Millisecond)
+	for range ticker.C {
+		log.Info("UpdateDynamoDBTableCapacity", "checking aws")
+		table, _ := client.dynamoClient.DescribeTable(&dynamodb.DescribeTableInput{TableName: &tableName})
+		if *table.Table.TableStatus != "UPDATING" {
+			break
+		}
+	}
+	ticker.Stop()
+
+	return nil
+}
+
+//mapAttributeValue - map values to their attribute type in dynamodb
+func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	case reflect.String:
+		strVal := val.(string)
+		return &dynamodb.AttributeValue{S: &strVal}
+	case reflect.Int:
+		intVal := fmt.Sprintf("%d", val.(int))
+		return &dynamodb.AttributeValue{N: &intVal}
+	case reflect.Int64:
+		intVal := fmt.Sprintf("%d", val.(int64))
+		return &dynamodb.AttributeValue{N: &intVal}
+	case reflect.Float32:
+		floatVal := fmt.Sprintf("%f", val.(float32))
+		return &dynamodb.AttributeValue{N: &floatVal}
+	}
+	return nil
 }
