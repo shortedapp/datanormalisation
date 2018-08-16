@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +17,7 @@ import (
 
 type mockAwsUtilClients struct {
 	TestOption int
+	awsutils.AwsUtiler
 }
 
 func (m mockAwsUtilClients) FetchCSVFileFromS3(bucketName string, key string, f func(s [][]string) (interface{}, error)) (interface{}, error) {
@@ -40,26 +42,12 @@ func (m mockAwsUtilClients) WithDynamoDBGetLatest(string, string) (*http.Respons
 	//Return response
 	return resp, nil
 }
-func (m mockAwsUtilClients) FetchDynamoDBLastModified(string, string) (string, error) {
-	return "", nil
-}
-func (m mockAwsUtilClients) PutDynamoDBLastModified(string, string, string) error {
-	return nil
-}
-func (m mockAwsUtilClients) PutKinesisRecords(*string, []interface{}, []string) error {
-	return nil
-}
-func (m mockAwsUtilClients) FetchJSONFileFromS3(string, string, func([]byte) (interface{}, error)) (interface{}, error) {
-	return nil, nil
-}
+
 func (m mockAwsUtilClients) PutFileToS3(string, string, []byte) error {
 	if m.TestOption == 0 {
 		return fmt.Errorf("unable to put to s3")
 	}
 	return nil
-}
-func (m mockAwsUtilClients) GetDynamoDBTableThroughput(string) (int, int) {
-	return 0, 0
 }
 
 func TestGetShareCodes(t *testing.T) {

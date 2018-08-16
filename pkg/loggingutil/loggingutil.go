@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"sync"
-	"time"
 )
 
 var once sync.Once
@@ -51,7 +50,7 @@ func CreateInstance(context LogContext, level int, vlogging bool) {
 
 //SetAppName - Function to set the name of the application with time stamps for logging
 func SetAppName(name string) {
-	Logger.StdLogger.SetPrefix(time.Now().Format("2006/01/02 15:04:05.000") + " " + name)
+	Logger.StdLogger.SetPrefix(name + " ")
 }
 
 //createLoggerImpl - Generate a logger implementation
@@ -59,7 +58,7 @@ func createLoggerImpl(l LogContext, level int, vlogging bool) *LoggerImpl {
 	return &LoggerImpl{
 		Level:     level,
 		Vlogging:  vlogging,
-		StdLogger: log.New(os.Stderr, l.App+":", 0),
+		StdLogger: log.New(os.Stderr, l.App+":", log.Ldate|log.Ltime),
 	}
 }
 

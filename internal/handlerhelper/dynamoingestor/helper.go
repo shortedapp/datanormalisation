@@ -22,7 +22,13 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 		return
 	}
 
-	writeThroughput, _ := d.Clients.GetDynamoDBTableThroughput(tableName)
+	readUnits, writeUnits := d.Clients.GetDynamoDBTableThroughput(tableName)
+	err = d.Clients.UpdateDynamoDBTableCapacity(tableName, readUnits, 25)
+	if err != nil {
+		log.Warn("IngestRoutine", "unable to update write capacity units")
+	}
+
+	_, writeThroughput := d.Clients.GetDynamoDBTableThroughput(tableName)
 	data := resp.([]*sharedata.CombinedShortJSON)
 
 	//Create a list of data to put into dynamo db
@@ -34,6 +40,7 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 
 	//Define a burst capacity for putting into dynamoDb. Set to write throughput to avoid significant ThroughputExceededErrors
 	burstChannel := make(chan *sharedata.CombinedShortJSON, writeThroughput)
+
 	//Create 1 second rate limiter
 	limiter := time.Tick(1000 * time.Millisecond)
 
@@ -49,6 +56,11 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 			go d.putRecord(<-burstChannel, timeVal)
 		}
 		<-limiter
+	}
+
+	err = d.Clients.UpdateDynamoDBTableCapacity(tableName, readUnits, writeUnits)
+	if err != nil {
+		log.Warn("IngestRoutine", "unable to update write capacity units")
 	}
 
 }
