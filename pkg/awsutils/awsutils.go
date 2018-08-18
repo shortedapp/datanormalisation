@@ -294,7 +294,31 @@ func (client *ClientsStruct) GetDynamoDBTableThroughput(tableName string) (int64
 	return int64(*tableRead), int64(*tableWrite)
 }
 
-// GetDynamoDBTBatchPut returns the read and write capacity units for a table
+// GetDynamoDBFromRange returns records from dynamoDB from a given range
+// inputs:
+//	- tableName: the name of the dynamoDB table
+func (client *ClientsStruct) GetDynamoDBFromRange(tableName string, startTime string) []map[string]*dynamodb.AttributeValue {
+	scanInput := dynamodb.ScanInput{
+		TableName:        &tableName,
+		FilterExpression: aws.String("#dateR > :dateTime"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":dateTime": {
+				N: &startTime,
+			},
+		},
+		ExpressionAttributeNames: map[string]*string{
+			"#dateR": aws.String("Date"),
+		},
+	}
+	result, err := client.dynamoClient.Scan(&scanInput)
+	if err != nil {
+		log.Info("GetDynamoDBTableThroughput", "unable to get table details")
+	}
+
+	return result.Items
+}
+
+// PutDynamoDBItems - puts items into a dynamodb table
 // inputs:
 //	- tableName: the name of the dynamoDB table
 //	- values: a map of keys and values for attributes
