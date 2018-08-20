@@ -3,6 +3,7 @@ package dynamoingestor
 import (
 	"time"
 
+	"github.com/shortedapp/shortedfunctions/internal/ingestionutils"
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
@@ -22,16 +23,11 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 		return
 	}
 
-	readUnits, writeUnits := d.Clients.GetDynamoDBTableThroughput(tableName)
-	err = d.Clients.UpdateDynamoDBTableCapacity(tableName, readUnits, 25)
-	if err != nil {
-		log.Warn("IngestRoutine", "unable to update write capacity units")
-	}
-
-	_, writeThroughput := d.Clients.GetDynamoDBTableThroughput(tableName)
-	data := resp.([]*sharedata.CombinedShortJSON)
+	//Update table capacity units
+	_, writeThroughput := ingestionutils.UpdateDynamoWriteUnits(d.Clients, tableName, 25)
 
 	//Create a list of data to put into dynamo db
+	data := resp.([]*sharedata.CombinedShortJSON)
 	putRequest := make(chan *sharedata.CombinedShortJSON, len(data))
 	for _, short := range data {
 		putRequest <- short
@@ -58,10 +54,8 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 		<-limiter
 	}
 
-	err = d.Clients.UpdateDynamoDBTableCapacity(tableName, readUnits, writeUnits)
-	if err != nil {
-		log.Warn("IngestRoutine", "unable to update write capacity units")
-	}
+	//Update table capacity units
+	ingestionutils.UpdateDynamoWriteUnits(d.Clients, tableName, 5)
 
 }
 

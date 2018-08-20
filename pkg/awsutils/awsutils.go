@@ -35,6 +35,7 @@ type AwsUtiler interface {
 	GetDynamoDBTableThroughput(string) (int64, int64)
 	PutDynamoDBItems(string, map[string]interface{}) error
 	UpdateDynamoDBTableCapacity(string, int64, int64) error
+	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -369,6 +370,33 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	ticker.Stop()
 
 	return nil
+}
+
+// UpdateDynamoDBTableCapacity - updates the tables read and write capacity
+// inputs:
+//	- tableName: the name of the dynamoDB table
+// 	- writeCap: the write capacity units
+//	- readCap: the read capacity units
+func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field string, keys []interface{}) ([]map[string]*dynamodb.AttributeValue, error) {
+
+	keysMap := make([]map[string]*dynamodb.AttributeValue, 0, len(keys))
+	for _, key := range keys {
+		keyAttributeMap := make(map[string]*dynamodb.AttributeValue, 1)
+		keyAttributeMap[field] = mapAttributeValue(key)
+		keysMap = append(keysMap, keyAttributeMap)
+	}
+	requestItems := make(map[string]*dynamodb.KeysAndAttributes, 1)
+	requestItems[tableName] = &dynamodb.KeysAndAttributes{Keys: keysMap}
+	res, err := client.dynamoClient.BatchGetItem(&dynamodb.BatchGetItemInput{
+		RequestItems: requestItems,
+	})
+
+	if err != nil {
+		log.Info("BatchGetItemsDynamoDB", err.Error())
+		return nil, err
+	}
+
+	return res.Responses[tableName], nil
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb
