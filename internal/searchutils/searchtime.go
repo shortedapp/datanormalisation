@@ -1,6 +1,7 @@
 package searchutils
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
@@ -17,8 +18,6 @@ const (
 	Week
 	//Day - generate a Daily average
 	Day
-	//Hour - generate an Hourly average
-	Hour
 	//Latest - generate an Hourly average
 	Latest
 )
@@ -37,13 +36,15 @@ func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, per
 	case 3:
 		duration = now.Sub(time.Unix(86400, 0))
 	case 4:
-		duration = now.Sub(time.Unix(3600, 0))
-	case 5:
 		//TODO update this value later
-		res, err := a.FetchDynamoDBLastModified("lastUpdate", "test")
+		res, err := a.FetchDynamoDBLastModified(tableName, keyName)
+		if err != nil {
+			return -1, -1
+		}
 		timeRes, err := time.Parse(time.RFC3339, res)
 		if err != nil {
-
+			fmt.Println(err.Error())
+			return -1, -1
 		}
 		duration = time.Duration(timeRes.UnixNano())
 	}

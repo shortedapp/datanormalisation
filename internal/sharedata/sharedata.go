@@ -10,6 +10,8 @@ import (
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
+// swagger:model
+
 // ShareJSON - JSON structure for ASX share code information
 type ShareJSON struct {
 	Name     string `json:"name"`

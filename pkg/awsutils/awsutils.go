@@ -372,14 +372,17 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	return nil
 }
 
-// UpdateDynamoDBTableCapacity - updates the tables read and write capacity
+// BatchGetItemsDynamoDB - batch get up to 100 items from DynamoDB
 // inputs:
 //	- tableName: the name of the dynamoDB table
-// 	- writeCap: the write capacity units
-//	- readCap: the read capacity units
+// 	- field: the field being matched on
+//	- keys: a list of values for the field
 func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field string, keys []interface{}) ([]map[string]*dynamodb.AttributeValue, error) {
 
+	//A map of the result attributes
 	keysMap := make([]map[string]*dynamodb.AttributeValue, 0, len(keys))
+
+	//Iterate through the list of key values and create a request map
 	for _, key := range keys {
 		keyAttributeMap := make(map[string]*dynamodb.AttributeValue, 1)
 		keyAttributeMap[field] = mapAttributeValue(key)
@@ -387,6 +390,8 @@ func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field strin
 	}
 	requestItems := make(map[string]*dynamodb.KeysAndAttributes, 1)
 	requestItems[tableName] = &dynamodb.KeysAndAttributes{Keys: keysMap}
+
+	//Make the request
 	res, err := client.dynamoClient.BatchGetItem(&dynamodb.BatchGetItemInput{
 		RequestItems: requestItems,
 	})
@@ -396,6 +401,7 @@ func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field strin
 		return nil, err
 	}
 
+	//Return the result (this assumes only one table)
 	return res.Responses[tableName], nil
 }
 
