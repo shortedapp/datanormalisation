@@ -82,6 +82,16 @@ func (m *mockDynamoDBClient) DescribeTable(table *dynamodb.DescribeTableInput) (
 	return &dynamodb.DescribeTableOutput{Table: tableDescription}, nil
 }
 
+func (m *mockDynamoDBClient) BatchGetItem(in *dynamodb.BatchGetItemInput) (*dynamodb.BatchGetItemOutput, error) {
+
+	mapResponses := make(map[string][]map[string]*dynamodb.AttributeValue)
+	stringVal := "test"
+	attValues := make([]map[string]*dynamodb.AttributeValue, 0, 1)
+	attValues = append(attValues, map[string]*dynamodb.AttributeValue{"Code": &dynamodb.AttributeValue{S: &stringVal}})
+	mapResponses["test"] = attValues
+	return &dynamodb.BatchGetItemOutput{Responses: mapResponses}, nil
+}
+
 func (m *mockDynamoDBClient) GetItem(item *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
 	if *item.TableName == "test" {
 		return nil, fmt.Errorf("table does not exist")
@@ -332,6 +342,19 @@ func TestUpdateDynamoDBTableCapacity(t *testing.T) {
 	assert.Equal(t, "test", err.Error())
 
 	err = client.UpdateDynamoDBTableCapacity("test2", 5, 5)
+	assert.True(t, err == nil)
+}
+
+func TestBatchGetItemsDynamoDB(t *testing.T) {
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+
+	interfaceSlice := make([]interface{}, 0, 1)
+	interfaceSlice = append(interfaceSlice, "test")
+
+	res, err := client.BatchGetItemsDynamoDB("test", "Code", interfaceSlice)
+
+	assert.True(t, res != nil)
 	assert.True(t, err == nil)
 }
 

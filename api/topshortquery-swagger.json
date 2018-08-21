@@ -1,0 +1,188 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/topshortquery": {
+      "get": {
+        "description": "Returns the top X shorted ASX stocks",
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "Handler",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int32",
+            "description": "maximum number of results to return",
+            "name": "number",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fetch Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/TopShortJSON"
+              }
+            }
+          },
+          "400": {
+            "description": "result"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AsicShortCsv": {
+      "description": "AsicShortCsv - CSV strucuture for ASIC Shorted Stock information",
+      "type": "object",
+      "properties": {
+        "Code": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Percent": {
+          "type": "number",
+          "format": "float"
+        },
+        "Shorts": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "Total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "AsicShortJSON": {
+      "description": "AsicShortJSON - JSON structure for ASIC Shorted Stock information",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "percent": {
+          "type": "number",
+          "format": "float",
+          "x-go-name": "Percent"
+        },
+        "shorts": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Shorts"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Total"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "CombinedShortJSON": {
+      "description": "CombinedShortJSON - JSON structure for combined ASIC short data and ASX code information",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "industry": {
+          "type": "string",
+          "x-go-name": "Industry"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "percent": {
+          "type": "number",
+          "format": "float",
+          "x-go-name": "Percent"
+        },
+        "shorts": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Shorts"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Total"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "ShareCsv": {
+      "description": "ShareCsv - CSV structure for ASX Share Code information",
+      "type": "object",
+      "properties": {
+        "Code": {
+          "type": "string"
+        },
+        "Industry": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "ShareJSON": {
+      "description": "ShareJSON - JSON structure for ASX share code information",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "industry": {
+          "type": "string",
+          "x-go-name": "Industry"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "TopShortJSON": {
+      "description": "TopShortJSON - JSON structure for Top Shorts",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "percent": {
+          "type": "number",
+          "format": "float",
+          "x-go-name": "Percent"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Position"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "lengthError": {
+      "type": "object",
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    }
+  }
+}

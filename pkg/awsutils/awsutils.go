@@ -35,6 +35,7 @@ type AwsUtiler interface {
 	GetDynamoDBTableThroughput(string) (int64, int64)
 	PutDynamoDBItems(string, map[string]interface{}) error
 	UpdateDynamoDBTableCapacity(string, int64, int64) error
+	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -294,7 +295,31 @@ func (client *ClientsStruct) GetDynamoDBTableThroughput(tableName string) (int64
 	return int64(*tableRead), int64(*tableWrite)
 }
 
-// GetDynamoDBTBatchPut returns the read and write capacity units for a table
+// GetDynamoDBFromRange returns records from dynamoDB from a given range
+// inputs:
+//	- tableName: the name of the dynamoDB table
+func (client *ClientsStruct) GetDynamoDBFromRange(tableName string, startTime string) []map[string]*dynamodb.AttributeValue {
+	scanInput := dynamodb.ScanInput{
+		TableName:        &tableName,
+		FilterExpression: aws.String("#dateR > :dateTime"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":dateTime": {
+				N: &startTime,
+			},
+		},
+		ExpressionAttributeNames: map[string]*string{
+			"#dateR": aws.String("Date"),
+		},
+	}
+	result, err := client.dynamoClient.Scan(&scanInput)
+	if err != nil {
+		log.Info("GetDynamoDBTableThroughput", "unable to get table details")
+	}
+
+	return result.Items
+}
+
+// PutDynamoDBItems - puts items into a dynamodb table
 // inputs:
 //	- tableName: the name of the dynamoDB table
 //	- values: a map of keys and values for attributes
@@ -345,6 +370,39 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	ticker.Stop()
 
 	return nil
+}
+
+// BatchGetItemsDynamoDB - batch get up to 100 items from DynamoDB
+// inputs:
+//	- tableName: the name of the dynamoDB table
+// 	- field: the field being matched on
+//	- keys: a list of values for the field
+func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field string, keys []interface{}) ([]map[string]*dynamodb.AttributeValue, error) {
+
+	//A map of the result attributes
+	keysMap := make([]map[string]*dynamodb.AttributeValue, 0, len(keys))
+
+	//Iterate through the list of key values and create a request map
+	for _, key := range keys {
+		keyAttributeMap := make(map[string]*dynamodb.AttributeValue, 1)
+		keyAttributeMap[field] = mapAttributeValue(key)
+		keysMap = append(keysMap, keyAttributeMap)
+	}
+	requestItems := make(map[string]*dynamodb.KeysAndAttributes, 1)
+	requestItems[tableName] = &dynamodb.KeysAndAttributes{Keys: keysMap}
+
+	//Make the request
+	res, err := client.dynamoClient.BatchGetItem(&dynamodb.BatchGetItemInput{
+		RequestItems: requestItems,
+	})
+
+	if err != nil {
+		log.Info("BatchGetItemsDynamoDB", err.Error())
+		return nil, err
+	}
+
+	//Return the result (this assumes only one table)
+	return res.Responses[tableName], nil
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb

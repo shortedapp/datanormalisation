@@ -15,3 +15,7 @@ make clean
 ## To deploy
 make deploy
 
+## To Generate Swagger Spec
+swagger generate spec -m -b ./{path to main function directory}  -o ./api/{function}-swagger.json
+
+Example: swagger generate spec -m -b ./cmd/topshortquery/  -o ./api/topshortquery-swagger.json

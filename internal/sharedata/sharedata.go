@@ -10,6 +10,8 @@ import (
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
+// swagger:model
+
 // ShareJSON - JSON structure for ASX share code information
 type ShareJSON struct {
 	Name     string `json:"name"`
@@ -24,6 +26,13 @@ type AsicShortJSON struct {
 	Shorts  int64   `json:"shorts"`
 	Total   int64   `json:"total"`
 	Percent float32 `json:"percent"`
+}
+
+// TopShortJSON - JSON structure for Top Shorts
+type TopShortJSON struct {
+	Position int64   `json:"position"`
+	Code     string  `json:"code"`
+	Percent  float32 `json:"percent"`
 }
 
 // AsicShortCsv - CSV strucuture for ASIC Shorted Stock information
