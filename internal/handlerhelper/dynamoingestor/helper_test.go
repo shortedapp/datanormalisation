@@ -3,6 +3,7 @@ package dynamoingestor
 import (
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func (m mockAwsUtilClients) UpdateDynamoDBTableCapacity(tableName string, readCa
 func TestPutRecord(t *testing.T) {
 	log.Logger.Vlogging = true
 	log.Logger.Level = 1
-	testTime := time.Now().UTC().UnixNano()
+	testTime, _ := strconv.Atoi(time.Now().UTC().Format("20060102"))
 	testCases := []struct {
 		testOption int
 		val        string

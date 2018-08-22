@@ -1,6 +1,7 @@
 package dynamoingestor
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/shortedapp/shortedfunctions/internal/ingestionutils"
@@ -40,7 +41,12 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 	//Create 1 second rate limiter
 	limiter := time.Tick(1000 * time.Millisecond)
 
-	timeVal := time.Now().UTC().UnixNano()
+	timeVal, err := strconv.Atoi(time.Now().UTC().Format("20060102"))
+
+	if err != nil {
+		log.Info("IngestRoutine", "failed to create int from date")
+	}
+
 	//Continue until no jobs are left
 	for len(putRequest) > 0 {
 		//fill burst capacity to max or until no jobs are left
@@ -59,7 +65,7 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 
 }
 
-func (d *Dynamoingestor) putRecord(data *sharedata.CombinedShortJSON, unixTime int64) {
+func (d *Dynamoingestor) putRecord(data *sharedata.CombinedShortJSON, date int) {
 	attributes := make(map[string]interface{}, 6)
 	attributes["Name"] = data.Name
 	attributes["Code"] = data.Code
@@ -67,7 +73,7 @@ func (d *Dynamoingestor) putRecord(data *sharedata.CombinedShortJSON, unixTime i
 	attributes["Total"] = data.Total
 	attributes["Percent"] = data.Percent
 	attributes["Industry"] = data.Industry
-	attributes["Date"] = unixTime
+	attributes["Date"] = date
 
 	err := d.Clients.PutDynamoDBItems("testShorts", attributes)
 	if err != nil {

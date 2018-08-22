@@ -2,6 +2,7 @@ package searchutils
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
@@ -23,18 +24,18 @@ const (
 )
 
 func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, period SearchPeriod) (int64, int64) {
-	var duration time.Duration
+	var duration int
 	now := time.Now()
+	nowDate, _ := strconv.Atoi(now.UTC().Format("20060102"))
 	switch period {
 	case 0:
-		duration = now.Sub(time.Unix(31536000, 0))
+		duration, _ = strconv.Atoi(now.AddDate(-1, 0, 0).UTC().Format("20060102"))
 	case 1:
-		//Update this to do exact month subtraction
-		duration = now.Sub(time.Unix(2592000, 0))
+		duration, _ = strconv.Atoi(now.AddDate(0, -1, 0).UTC().Format("20060102"))
 	case 2:
-		duration = now.Sub(time.Unix(604800, 0))
+		duration, _ = strconv.Atoi(now.AddDate(0, 0, -7).UTC().Format("20060102"))
 	case 3:
-		duration = now.Sub(time.Unix(86400, 0))
+		duration, _ = strconv.Atoi(now.AddDate(0, 0, -1).UTC().Format("20060102"))
 	case 4:
 		//TODO update this value later
 		res, err := a.FetchDynamoDBLastModified(tableName, keyName)
@@ -46,7 +47,7 @@ func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, per
 			fmt.Println(err.Error())
 			return -1, -1
 		}
-		duration = time.Duration(timeRes.UnixNano())
+		duration, _ = strconv.Atoi(timeRes.UTC().Format("20060102"))
 	}
-	return time.Unix(0, duration.Nanoseconds()).UnixNano(), now.UnixNano()
+	return int64(duration), int64(nowDate)
 }
