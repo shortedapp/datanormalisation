@@ -1,7 +1,6 @@
 package searchutils
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -37,14 +36,12 @@ func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, per
 	case 3:
 		duration, _ = strconv.Atoi(now.AddDate(0, 0, -1).UTC().Format("20060102"))
 	case 4:
-		//TODO update this value later
 		res, err := a.FetchDynamoDBLastModified(tableName, keyName)
 		if err != nil {
 			return -1, -1
 		}
 		timeRes, err := time.Parse(time.RFC3339, res)
 		if err != nil {
-			fmt.Println(err.Error())
 			return -1, -1
 		}
 		duration, _ = strconv.Atoi(timeRes.UTC().Format("20060102"))
