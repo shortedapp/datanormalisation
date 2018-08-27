@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/shortedapp/shortedfunctions/internal/handlerhelper/dynamoingestor"
+	"github.com/shortedapp/shortedfunctions/internal/searchutils"
+	"github.com/shortedapp/shortedfunctions/internal/timeseriesutil"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
@@ -21,6 +25,8 @@ func Handler(request events.SNSEvent) {
 
 func main() {
 	log.SetAppName("ShortedApp")
-	Handler(events.SNSEvent{})
+	// Handler(events.SNSEvent{})
+	clients := awsutils.GenerateAWSClients("dynamoDB", "s3")
+	fmt.Println(timeseriesutil.FetchTimeSeries(clients, "testShorts", "TLS", searchutils.Month))
 	lambda.Start(Handler)
 }
