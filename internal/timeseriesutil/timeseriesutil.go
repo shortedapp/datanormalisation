@@ -1,11 +1,18 @@
 package timeseriesutil
 
 import (
+	"strconv"
+
 	"github.com/shortedapp/shortedfunctions/internal/searchutils"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 )
 
-func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, period searchutils.SearchPeriod) (string, [][2]string) {
+type DatePercent struct {
+	Date    int
+	Percent float64
+}
+
+func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, period searchutils.SearchPeriod) (string, []DatePercent) {
 	if period == searchutils.Latest {
 		return "", nil
 	}
@@ -18,10 +25,21 @@ func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, 
 		Low:           low,
 		High:          high,
 	}
-	res := clients.TimeRangeQueryDynamoDB(&query)
-	timeSeries := make([][2]string, 0, len(res))
+	//TODO add retry logic here
+	res, _ := clients.TimeRangeQueryDynamoDB(&query)
+	timeSeries := make([]DatePercent, 0, len(res))
 	for _, timespot := range res {
-		timeSeries = append(timeSeries, [2]string{*timespot["Date"].N, *timespot["Percent"].N})
+		date, err := strconv.Atoi(*timespot["Date"].N)
+		if err != nil {
+			//skip element on error
+			continue
+		}
+		percent, _ := strconv.ParseFloat(*timespot["Percent"].N, 64)
+		if err != nil {
+			//skip element on error
+			continue
+		}
+		timeSeries = append(timeSeries, DatePercent{Date: date, Percent: percent})
 	}
 	return code, timeSeries
 }
