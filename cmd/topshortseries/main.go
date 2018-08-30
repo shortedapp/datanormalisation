@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/shortedapp/shortedfunctions/internal/handlerhelper/topshortseries"
 	"github.com/shortedapp/shortedfunctions/internal/searchutils"
@@ -14,17 +15,35 @@ import (
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
+//ConvertDurationToSearchPeriod - Convert String search duration to search period
+//defaults if an invalid selection is provided
+func ConvertDurationToSearchPeriod(duration string) searchutils.SearchPeriod {
+	switch strings.ToLower(duration) {
+	case "week":
+		return searchutils.Week
+	case "month":
+		return searchutils.Month
+	case "year":
+		return searchutils.Year
+	}
+	return searchutils.Week
+}
+
 //Validator - Validates the input has all the correct data
-func Validator(request events.APIGatewayProxyRequest) (bool, string, int) {
+func Validator(request events.APIGatewayProxyRequest) (bool, string, int, searchutils.SearchPeriod) {
 	if request.HTTPMethod != "GET" {
-		return false, "{\"msg\": \"only HTTP GET is allowed on this resource\"}", -1
+		return false, "{\"msg\": \"only HTTP GET is allowed on this resource\"}", -1, searchutils.Day
 	}
 	number, pres := request.QueryStringParameters["number"]
 	if !pres {
 		number = "10"
 	}
 	num, _ := strconv.Atoi(number)
-	return true, "", num
+	if num <= 0 {
+		return false, "{\"msg\": \"number nmust be greater than 0\"}", -1, searchutils.Day
+	}
+	duration, _ := request.QueryStringParameters["duration"]
+	return true, "", num, ConvertDurationToSearchPeriod(duration)
 }
 
 //Handler - the main function handler, triggered by a API Gateway Proxy Request event
@@ -51,13 +70,13 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	//     type: string
 
 	//Validate the request
-	// valid, msg, num := Validator(request)
-	// if !valid {
-	// 	return events.APIGatewayProxyResponse{
-	// 		StatusCode: 400,
-	// 		Body:       msg,
-	// 	}, nil
-	// }
+	valid, msg, num, duration := Validator(request)
+	if !valid {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 400,
+			Body:       msg,
+		}, nil
+	}
 
 	//Generate Clients
 	clients := awsutils.GenerateAWSClients("dynamoDB")
@@ -66,7 +85,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	t := topshortseries.Topshortseries{Clients: clients}
 
 	//Run the topshortseries fetch routine
-	res := t.FetchTopShortedSeries("testTopShorts", "testShorts", 10, searchutils.Month)
+	res := t.FetchTopShortedSeries("testTopShorts", "testShorts", num, duration)
 
 	//Marshal the response and send back to the client
 	respJSON, err := json.Marshal(res)
@@ -81,6 +100,6 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 func main() {
 	log.SetAppName("ShortedApp")
-	fmt.Println(Handler(events.APIGatewayProxyRequest{}))
+	fmt.Println(Handler(events.APIGatewayProxyRequest{HTTPMethod: "GET", QueryStringParameters: map[string]string{"number": "10", "duration": "month"}}))
 	lambda.Start(Handler)
 }

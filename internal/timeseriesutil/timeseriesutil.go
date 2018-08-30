@@ -7,11 +7,13 @@ import (
 	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 )
 
+//DatePercent - Struct to store Date and Percent KVs
 type DatePercent struct {
 	Date    int
 	Percent float64
 }
 
+//FetchTimeSeries - Function To fetch a time series based off passed duration
 func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, period searchutils.SearchPeriod) (string, []DatePercent) {
 	if period == searchutils.Latest {
 		return "", nil
@@ -25,7 +27,7 @@ func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, 
 		Low:           low,
 		High:          high,
 	}
-	//TODO add retry logic here
+	//ENHANCEMENT: create custom retry logic
 	res, _ := clients.TimeRangeQueryDynamoDB(&query)
 	timeSeries := make([]DatePercent, 0, len(res))
 	for _, timespot := range res {

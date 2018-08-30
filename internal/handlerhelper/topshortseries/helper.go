@@ -37,7 +37,7 @@ func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeries
 
 	for _, item := range res {
 		code := *item["Code"].S
-		go getCodeSeries(t.Clients, timeSeriesTable, code, period, seriesChannel, &wg)
+		go t.getCodeSeries(timeSeriesTable, code, period, seriesChannel, &wg)
 	}
 
 	//Wait here and close channel once done
@@ -48,9 +48,9 @@ func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeries
 
 }
 
-func getCodeSeries(client awsutils.AwsUtiler, table string, code string,
+func (t *Topshortseries) getCodeSeries(table string, code string,
 	period searchutils.SearchPeriod, seriesChannel chan TopSeries, wg *sync.WaitGroup) {
-	code, res := timeseriesutil.FetchTimeSeries(client, table, code, period)
+	code, res := timeseriesutil.FetchTimeSeries(t.Clients, table, code, period)
 	seriesChannel <- TopSeries{Code: code, DateValues: res}
 	wg.Done()
 }

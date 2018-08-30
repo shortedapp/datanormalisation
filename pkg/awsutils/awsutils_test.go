@@ -82,6 +82,13 @@ func (m *mockDynamoDBClient) DescribeTable(table *dynamodb.DescribeTableInput) (
 	return &dynamodb.DescribeTableOutput{Table: tableDescription}, nil
 }
 
+func (m *mockDynamoDBClient) Query(table *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
+	if *table.TableName == "test" {
+		return nil, fmt.Errorf("error")
+	}
+	return &dynamodb.QueryOutput{}, nil
+}
+
 func (m *mockDynamoDBClient) BatchGetItem(in *dynamodb.BatchGetItemInput) (*dynamodb.BatchGetItemOutput, error) {
 
 	mapResponses := make(map[string][]map[string]*dynamodb.AttributeValue)
@@ -355,6 +362,19 @@ func TestBatchGetItemsDynamoDB(t *testing.T) {
 	res, err := client.BatchGetItemsDynamoDB("test", "Code", interfaceSlice)
 
 	assert.True(t, res != nil)
+	assert.True(t, err == nil)
+}
+
+func TestTimeRangeQueryDynamoDB(t *testing.T) {
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+
+	query := DynamoDBRangeQuery{TableName: "test"}
+	_, err := client.TimeRangeQueryDynamoDB(&query)
+	assert.True(t, err != nil)
+
+	query = DynamoDBRangeQuery{TableName: "test2"}
+	_, err = client.TimeRangeQueryDynamoDB(&query)
 	assert.True(t, err == nil)
 }
 
