@@ -22,6 +22,5 @@ func Handler(request events.SNSEvent) {
 
 func main() {
 	log.SetAppName("ShortedApp")
-	Handler(events.SNSEvent{})
 	lambda.Start(Handler)
 }

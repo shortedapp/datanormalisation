@@ -36,6 +36,17 @@ type AwsUtiler interface {
 	PutDynamoDBItems(string, map[string]interface{}) error
 	UpdateDynamoDBTableCapacity(string, int64, int64) error
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
+	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
+}
+
+//DynamoDBRangeQuery - Type for dynamoDB range query
+type DynamoDBRangeQuery struct {
+	TableName     string
+	PartitionName string
+	PartitionKey  string
+	SortName      string
+	Low           int64
+	High          int64
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -403,6 +414,24 @@ func (client *ClientsStruct) BatchGetItemsDynamoDB(tableName string, field strin
 
 	//Return the result (this assumes only one table)
 	return res.Responses[tableName], nil
+}
+
+// TimeRangeQueryDynamoDB - query a table by its range key (note this must be a numeric value)
+// inputs:
+//	- queryObject (refer to the DynamoDBRangeQuery Object)
+func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error) {
+	queryConditionExpression := "#partitionName = :name and #rangeName between :low and :high"
+	res, err := client.dynamoClient.Query(&dynamodb.QueryInput{
+		TableName:              &queryObject.TableName,
+		KeyConditionExpression: &queryConditionExpression,
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":name": mapAttributeValue(queryObject.PartitionKey),
+			":low": mapAttributeValue(queryObject.Low), ":high": mapAttributeValue(queryObject.High)},
+		ExpressionAttributeNames: map[string]*string{"#partitionName": &queryObject.PartitionName, "#rangeName": &queryObject.SortName},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Items, err
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb
