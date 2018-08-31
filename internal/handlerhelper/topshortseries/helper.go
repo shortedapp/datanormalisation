@@ -1,7 +1,6 @@
 package topshortseries
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/shortedapp/shortedfunctions/internal/searchutils"
@@ -26,7 +25,6 @@ func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeries
 	}
 	res, err := t.Clients.BatchGetItemsDynamoDB(topShortsTable, "Position", interSlice)
 
-	fmt.Println(res, err)
 	if err != nil {
 		return nil
 	}
