@@ -12,7 +12,7 @@ import (
 func Handler(request events.CloudWatchEvent) {
 	//Generate Clients
 	clients := awsutils.GenerateAWSClients("s3")
-	//Create datanormalise object
+	//Create datanormalise struct
 	d := datafetch.Datafetch{Clients: clients}
 	//Run the normalise routine
 	d.FetchRoutine(d.AsxCodeFetch)

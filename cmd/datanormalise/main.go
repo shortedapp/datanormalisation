@@ -12,7 +12,7 @@ import (
 func Handler(request events.CloudWatchEvent) {
 	//Generate Clients
 	clients := awsutils.GenerateAWSClients("dynamoDB", "s3", "kinesis")
-	//Create datanormalise object
+	//Create datanormalise struct
 	d := datanormalise.Datanormalise{Clients: clients}
 	//Run the normalise routine
 	d.NormaliseRoutine()

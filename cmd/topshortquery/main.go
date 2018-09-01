@@ -66,7 +66,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	//Generate Clients
 	clients := awsutils.GenerateAWSClients("dynamoDB")
 
-	//Create topshortslist object
+	//Create topshortslist struct
 	t := topshortsquery.Topshortsquery{Clients: clients}
 
 	//Run the topshorts fetch routine
