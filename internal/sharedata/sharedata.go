@@ -61,6 +61,13 @@ type CombinedShortJSON struct {
 	Industry string  `json:"industry"`
 }
 
+type ShareMovementJSON struct {
+	Code  string  `json:"code"`
+	Week  float64 `json:"week"`
+	Month float64 `json:"month"`
+	Year  float64 `json:"year"`
+}
+
 type lengthError struct {
 	len int
 }

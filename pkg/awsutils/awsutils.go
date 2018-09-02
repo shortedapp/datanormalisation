@@ -37,6 +37,7 @@ type AwsUtiler interface {
 	UpdateDynamoDBTableCapacity(string, int64, int64) error
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
+	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -47,6 +48,15 @@ type DynamoDBRangeQuery struct {
 	SortName      string
 	Low           int64
 	High          int64
+}
+
+//DynamoDBItemQuery - Type for dynamoDB specific item query
+type DynamoDBItemQuery struct {
+	TableName     string
+	PartitionName string
+	PartitionKey  string
+	SortName      string
+	SortValue     string
 }
 
 //ClientsStruct - Structure to hold the various AWS clients
@@ -381,6 +391,29 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	ticker.Stop()
 
 	return nil
+}
+
+// GetItemByPartAndSortDynamoDB - get a specific item from DynamoDB
+// inputs:
+//	- query: DynamoDBItemQuery (assumes number sort key for now)
+func (client *ClientsStruct) GetItemByPartAndSortDynamoDB(query *DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error) {
+
+	//Make the request
+	res, err := client.dynamoClient.GetItem(&dynamodb.GetItemInput{
+		TableName: &query.TableName,
+		Key: map[string]*dynamodb.AttributeValue{
+			query.PartitionKey: &dynamodb.AttributeValue{S: &query.PartitionName},
+			query.SortName:     &dynamodb.AttributeValue{N: &query.SortValue},
+		},
+	})
+
+	if err != nil {
+		log.Info("GetItemByPartAndSortDynamoDB", err.Error())
+		return nil, err
+	}
+
+	//Return the result
+	return res.Item, nil
 }
 
 // BatchGetItemsDynamoDB - batch get up to 100 items from DynamoDB
