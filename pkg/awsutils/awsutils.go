@@ -12,6 +12,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/aws/aws-sdk-go/service/athena/athenaiface"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -65,6 +67,7 @@ type ClientsStruct struct {
 	s3DownloadClient s3manageriface.DownloaderAPI
 	s3UploadClient   s3manageriface.UploaderAPI
 	kinesisClient    kinesisiface.KinesisAPI
+	athenaClient     athenaiface.AthenaAPI
 }
 
 // GenerateAWSClients generates new AWS clients based on string array
@@ -80,6 +83,8 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 			clientStruct.dynamoClient = dynamodb.New(sess)
 		case "kinesis":
 			clientStruct.kinesisClient = kinesis.New(sess)
+		case "athena":
+			clientStruct.athenaClient = athena.New(sess)
 		}
 	}
 	return clientStruct
