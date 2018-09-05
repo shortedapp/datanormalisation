@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) BatchGetItemsDynamoDB(tableName string, field string, keys []interface{}) ([]map[string]*dynamodb.AttributeValue, error) {

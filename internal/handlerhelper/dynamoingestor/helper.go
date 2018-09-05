@@ -7,13 +7,13 @@ import (
 	"github.com/shortedapp/shortedfunctions/internal/ingestionutils"
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //Dynamoingestor - struct to enable testing
 type Dynamoingestor struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 // IngestRoutine - function to ingest data into DynamoDB

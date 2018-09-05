@@ -6,13 +6,13 @@ import (
 
 	"github.com/shortedapp/shortedfunctions/internal/ingestionutils"
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //Topshortslist - struct to enable testing
 type Topshortsingestor struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 //IngestTopShorted - Reads the latest

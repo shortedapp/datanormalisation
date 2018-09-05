@@ -8,18 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) PutDynamoDBItems(tableName string, values map[string]interface{}) error {

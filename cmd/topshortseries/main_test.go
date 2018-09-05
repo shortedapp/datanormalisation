@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -12,15 +12,15 @@ import (
 func TestConvertDurationToSearchPeriod(t *testing.T) {
 	testCases := []struct {
 		strVal string
-		result searchutils.SearchPeriod
+		result searchutil.SearchPeriod
 	}{
-		{strVal: "week", result: searchutils.Week},
-		{strVal: "wEek", result: searchutils.Week},
-		{strVal: "week!", result: searchutils.Week},
-		{strVal: "month", result: searchutils.Month},
-		{strVal: "Month", result: searchutils.Month},
-		{strVal: "year", result: searchutils.Year},
-		{strVal: "yeaR", result: searchutils.Year},
+		{strVal: "week", result: searchutil.Week},
+		{strVal: "wEek", result: searchutil.Week},
+		{strVal: "week!", result: searchutil.Week},
+		{strVal: "month", result: searchutil.Month},
+		{strVal: "Month", result: searchutil.Month},
+		{strVal: "year", result: searchutil.Year},
+		{strVal: "yeaR", result: searchutil.Year},
 	}
 
 	for _, test := range testCases {

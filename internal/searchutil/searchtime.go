@@ -1,10 +1,10 @@
-package searchutils
+package searchutil
 
 import (
 	"strconv"
 	"time"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 )
 
 type SearchPeriod int
@@ -22,7 +22,7 @@ const (
 	Latest
 )
 
-func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, period SearchPeriod) (int64, int64) {
+func GetSearchWindow(a awsutil.AwsUtiler, tableName string, keyName string, period SearchPeriod) (int64, int64) {
 	var duration int
 	now := time.Now()
 	nowDate, _ := strconv.Atoi(now.UTC().Format("20060102"))

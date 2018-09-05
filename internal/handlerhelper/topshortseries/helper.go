@@ -3,13 +3,13 @@ package topshortseries
 import (
 	"sync"
 
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
 	"github.com/shortedapp/shortedfunctions/internal/timeseriesutil"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 )
 
 type Topshortseries struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 type TopSeries struct {
@@ -17,7 +17,7 @@ type TopSeries struct {
 	DateValues []timeseriesutil.DatePercent
 }
 
-func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeriesTable string, top int, period searchutils.SearchPeriod) map[string][]timeseriesutil.DatePercent {
+func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeriesTable string, top int, period searchutil.SearchPeriod) map[string][]timeseriesutil.DatePercent {
 	//Work In Progress
 	interSlice := make([]interface{}, top)
 	for i := 0; i < top; i++ {
@@ -49,7 +49,7 @@ func (t *Topshortseries) FetchTopShortedSeries(topShortsTable string, timeSeries
 }
 
 func (t *Topshortseries) getCodeSeries(table string, code string,
-	period searchutils.SearchPeriod, seriesChannel chan TopSeries, wg *sync.WaitGroup) {
+	period searchutil.SearchPeriod, seriesChannel chan TopSeries, wg *sync.WaitGroup) {
 	code, res := timeseriesutil.FetchTimeSeries(t.Clients, table, code, period)
 	seriesChannel <- TopSeries{Code: code, DateValues: res}
 	wg.Done()

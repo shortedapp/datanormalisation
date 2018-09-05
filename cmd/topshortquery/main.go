@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/shortedapp/shortedfunctions/internal/handlerhelper/topshortsquery"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
@@ -64,7 +64,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}
 
 	//Generate Clients
-	clients := awsutils.GenerateAWSClients("dynamoDB")
+	clients := awsutil.GenerateAWSClients("dynamoDB")
 
 	//Create topshortslist struct
 	t := topshortsquery.Topshortsquery{Clients: clients}

@@ -6,13 +6,13 @@ import (
 	"io/ioutil"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //Datanormalise - struct to enable testing
 type Datanormalise struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 //NormaliseRoutine - Runs a routine to generate the short data and upload to s3

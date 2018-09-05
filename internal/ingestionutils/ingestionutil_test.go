@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 )
 
 type Ingestionutilclient struct {
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (i Ingestionutilclient) UpdateDynamoDBTableCapacity(table string, read int64, write int64) error {

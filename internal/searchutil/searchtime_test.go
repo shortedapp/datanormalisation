@@ -1,15 +1,15 @@
-package searchutils
+package searchutil
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
 )
 
 type Searchutilclient struct {
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (s Searchutilclient) FetchDynamoDBLastModified(tableName string, keyName string) (string, error) {
@@ -41,7 +41,6 @@ func TestGetSearchWindow(t *testing.T) {
 
 	for _, test := range testCases {
 		res, res2 := GetSearchWindow(client, test.table, "", test.period)
-		fmt.Println(res, res2)
 		if test.period == Latest && test.table != "test" {
 			assert.True(t, test.result <= (res2/10000-res/10000))
 		} else if test.period == Latest {
@@ -52,7 +51,7 @@ func TestGetSearchWindow(t *testing.T) {
 			diff := (res2/100)%100 - (res/100)%100
 			assert.True(t, (test.result == diff || diff == 11))
 		} else if test.period == Week {
-			diff := res2%100 - res%100
+			diff := res2 - res
 			assert.True(t, (test.result == diff || diff > 21))
 		} else if test.period == Day {
 			diff := res2%100 - res%100

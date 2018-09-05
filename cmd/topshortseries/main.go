@@ -7,32 +7,32 @@ import (
 	"strings"
 
 	"github.com/shortedapp/shortedfunctions/internal/handlerhelper/topshortseries"
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //ConvertDurationToSearchPeriod - Convert String search duration to search period
 //defaults if an invalid selection is provided
-func ConvertDurationToSearchPeriod(duration string) searchutils.SearchPeriod {
+func ConvertDurationToSearchPeriod(duration string) searchutil.SearchPeriod {
 	switch strings.ToLower(duration) {
 	case "week":
-		return searchutils.Week
+		return searchutil.Week
 	case "month":
-		return searchutils.Month
+		return searchutil.Month
 	case "year":
-		return searchutils.Year
+		return searchutil.Year
 	}
-	return searchutils.Week
+	return searchutil.Week
 }
 
 //Validator - Validates the input has all the correct data
-func Validator(request events.APIGatewayProxyRequest) (bool, string, int, searchutils.SearchPeriod) {
+func Validator(request events.APIGatewayProxyRequest) (bool, string, int, searchutil.SearchPeriod) {
 	if request.HTTPMethod != "GET" {
-		return false, "{\"msg\": \"only HTTP GET is allowed on this resource\"}", -1, searchutils.Day
+		return false, "{\"msg\": \"only HTTP GET is allowed on this resource\"}", -1, searchutil.Day
 	}
 	number, pres := request.QueryStringParameters["number"]
 	if !pres {
@@ -40,7 +40,7 @@ func Validator(request events.APIGatewayProxyRequest) (bool, string, int, search
 	}
 	num, _ := strconv.Atoi(number)
 	if num <= 0 {
-		return false, "{\"msg\": \"number nmust be greater than 0\"}", -1, searchutils.Day
+		return false, "{\"msg\": \"number nmust be greater than 0\"}", -1, searchutil.Day
 	}
 	duration, _ := request.QueryStringParameters["duration"]
 	return true, "", num, ConvertDurationToSearchPeriod(duration)
@@ -79,7 +79,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}
 
 	//Generate Clients
-	clients := awsutils.GenerateAWSClients("dynamoDB")
+	clients := awsutil.GenerateAWSClients("dynamoDB")
 
 	//Create topshortseries struct
 	t := topshortseries.Topshortseries{Clients: clients}

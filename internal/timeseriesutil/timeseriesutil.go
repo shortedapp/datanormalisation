@@ -3,8 +3,8 @@ package timeseriesutil
 import (
 	"strconv"
 
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 )
 
 //DatePercent - Struct to store Date and Percent KVs
@@ -14,12 +14,12 @@ type DatePercent struct {
 }
 
 //FetchTimeSeries - Function To fetch a time series based off passed duration
-func FetchTimeSeries(clients awsutils.AwsUtiler, tableName string, code string, period searchutils.SearchPeriod) (string, []DatePercent) {
-	if period == searchutils.Latest {
+func FetchTimeSeries(clients awsutil.AwsUtiler, tableName string, code string, period searchutil.SearchPeriod) (string, []DatePercent) {
+	if period == searchutil.Latest {
 		return "", nil
 	}
-	low, high := searchutils.GetSearchWindow(clients, "", "", period)
-	query := awsutils.DynamoDBRangeQuery{
+	low, high := searchutil.GetSearchWindow(clients, "", "", period)
+	query := awsutil.DynamoDBRangeQuery{
 		TableName:     tableName,
 		PartitionName: "Code",
 		PartitionKey:  code,

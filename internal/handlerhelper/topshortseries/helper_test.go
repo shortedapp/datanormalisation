@@ -6,16 +6,16 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
 
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
 	"github.com/shortedapp/shortedfunctions/internal/timeseriesutil"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) BatchGetItemsDynamoDB(table string, key string, values []interface{}) ([]map[string]*dynamodb.AttributeValue, error) {
@@ -45,7 +45,7 @@ func TestGetCodeSeries(t *testing.T) {
 	wg.Add(1)
 	tc := Topshortseries{}
 	seriesChannel := make(chan TopSeries, 1)
-	tc.getCodeSeries("test", "code", searchutils.Latest, seriesChannel, &wg)
+	tc.getCodeSeries("test", "code", searchutil.Latest, seriesChannel, &wg)
 	res := <-seriesChannel
 	assert.True(t, res.Code == "")
 }
@@ -63,7 +63,7 @@ func TestFetchTopShortedSeries(t *testing.T) {
 	for _, testCase := range testCases {
 		client := mockAwsUtilClients{testCase.testOption, nil}
 		ts := Topshortseries{Clients: client}
-		res := ts.FetchTopShortedSeries("test", "code", 1, searchutils.Latest)
+		res := ts.FetchTopShortedSeries("test", "code", 1, searchutil.Latest)
 		assert.Equal(t, testCase.result, len(res) == 0)
 	}
 }
