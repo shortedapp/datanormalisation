@@ -40,6 +40,7 @@ type AwsUtiler interface {
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
+	SendAthenaQuery(query string, database string)
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -470,6 +471,36 @@ func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQu
 		return nil, err
 	}
 	return res.Items, err
+}
+
+//
+func (client *ClientsStruct) SendAthenaQuery(query string, database string) {
+	location := "s3://testshorteddata"
+	queryId, err := client.athenaClient.StartQueryExecution(&athena.StartQueryExecutionInput{
+		QueryExecutionContext: &athena.QueryExecutionContext{Database: &database},
+		QueryString:           &query,
+		ResultConfiguration: &athena.ResultConfiguration{
+			OutputLocation: &location,
+		},
+	})
+	if err != nil {
+		log.Info("test", err.Error())
+	}
+
+	//TODO IMPLEMENT EXPONTENTIAL BACKOFF HERE
+	time.Sleep(10000000000)
+
+	result, err := client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
+		QueryExecutionId: queryId.QueryExecutionId,
+	})
+
+	if err != nil {
+		log.Info("test", err.Error())
+	}
+	fmt.Println(len(result.ResultSet.Rows))
+
+	//TODO add method to auto increment results based on next token
+
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb

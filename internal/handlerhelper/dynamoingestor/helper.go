@@ -16,9 +16,13 @@ type Dynamoingestor struct {
 	Clients awsutil.AwsUtiler
 }
 
+//
+
 // IngestRoutine - function to ingest data into DynamoDB
 func (d *Dynamoingestor) IngestRoutine(tableName string) {
-	resp, err := d.Clients.FetchJSONFileFromS3("shortedappjmk", "combinedshorts.json", sharedata.UnmarshalCombinedShortsJSON)
+	currentTime := time.Now()
+	currentDay := currentTime.Format("20060102")
+	resp, err := d.Clients.FetchJSONFileFromS3("shortedappjmk", "testShortedData/"+currentDay+".json", sharedata.UnmarshalCombinedResultJSON)
 	if err != nil {
 		log.Info("IngestRoutine", "unable to fetch data from s3")
 		return
@@ -28,9 +32,9 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 	_, writeThroughput := ingestionutils.UpdateDynamoWriteUnits(d.Clients, tableName, 25)
 
 	//Create a list of data to put into dynamo db
-	data := resp.([]*sharedata.CombinedShortJSON)
-	putRequest := make(chan *sharedata.CombinedShortJSON, len(data))
-	for _, short := range data {
+	data := resp.(sharedata.CombinedResultJSON)
+	putRequest := make(chan *sharedata.CombinedShortJSON, len(data.Result))
+	for _, short := range data.Result {
 		putRequest <- short
 	}
 	close(putRequest)

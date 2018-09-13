@@ -68,6 +68,10 @@ type ShareMovementJSON struct {
 	Year  float64 `json:"year"`
 }
 
+type CombinedResultJSON struct {
+	Result []*CombinedShortJSON `json:"result"`
+}
+
 type lengthError struct {
 	len int
 }
@@ -141,6 +145,13 @@ func UnmarshalSharesJSON(b []byte) (interface{}, error) {
 //UnmarshalSharesJSON - Unmarshal Shares Json information into a structure
 func UnmarshalCombinedShortsJSON(b []byte) (interface{}, error) {
 	s1 := make([]*CombinedShortJSON, 0)
+	err := json.Unmarshal(b, &s1)
+	return s1, err
+}
+
+//UnmarshalCombinedResultJSON - Unmarshal Combined Result Json information into a structure
+func UnmarshalCombinedResultJSON(b []byte) (interface{}, error) {
+	s1 := CombinedResultJSON{}
 	err := json.Unmarshal(b, &s1)
 	return s1, err
 }

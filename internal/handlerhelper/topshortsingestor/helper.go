@@ -18,19 +18,22 @@ type Topshortsingestor struct {
 //IngestTopShorted - Reads the latest
 func (t *Topshortsingestor) IngestTopShorted(tableName string) {
 
-	resp, err := t.Clients.FetchJSONFileFromS3("shortedappjmk", "combinedshorts.json", sharedata.UnmarshalCombinedShortsJSON)
+	currentTime := time.Now()
+	currentDay := currentTime.Format("20060102")
+	resp, err := t.Clients.FetchJSONFileFromS3("shortedappjmk", "testShortedData/"+currentDay+".json", sharedata.UnmarshalCombinedResultJSON)
 	if err != nil {
 		log.Info("IngestRoutine", "unable to fetch data from s3")
 		return
 	}
-	data := resp.([]*sharedata.CombinedShortJSON)
+	data := resp.(sharedata.CombinedResultJSON)
+	dataResult := data.Result
 
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].Percent > data[j].Percent
+	sort.Slice(dataResult, func(i, j int) bool {
+		return dataResult[i].Percent > dataResult[j].Percent
 	})
 
-	putRequest := make(chan *sharedata.TopShortJSON, len(data))
-	for i, short := range data {
+	putRequest := make(chan *sharedata.TopShortJSON, len(dataResult))
+	for i, short := range dataResult {
 		shortIn := &sharedata.TopShortJSON{
 			Position: int64(i),
 			Code:     short.Code,

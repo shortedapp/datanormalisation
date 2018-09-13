@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"time"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
@@ -120,15 +121,22 @@ func (d Datanormalise) MergeShortData(shortsReady <-chan map[string]*sharedata.A
 
 //UploadData - Marshal Object to JSON and Push to S3
 func (d Datanormalise) UploadData(data []*sharedata.CombinedShortJSON) {
+	//add result key
+	result := sharedata.CombinedResultJSON{Result: data}
+
 	//Marshal the data into JSON
-	shortDataBytes, err := json.Marshal(data)
+	shortDataBytes, err := json.Marshal(result)
+
 	if err != nil {
 		log.Info("UploadData", "unable to marshal short data into JSON")
 		return
 	}
 
+	currentTime := time.Now()
+	currentDay := currentTime.Format("20060102")
+
 	//Push to S3
-	err = d.Clients.PutFileToS3("shortedappjmk", "combinedshorts.json", shortDataBytes)
+	err = d.Clients.PutFileToS3("shortedappjmk", "testShortedData/"+currentDay+".json", shortDataBytes)
 	if err != nil {
 		log.Info("UploadData", "unable to upload to S3")
 	}
