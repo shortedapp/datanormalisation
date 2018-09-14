@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"time"
 
@@ -40,7 +41,7 @@ type AwsUtiler interface {
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
-	SendAthenaQuery(query string, database string)
+	SendAthenaQuery(query string, database string) error
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -474,7 +475,7 @@ func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQu
 }
 
 //
-func (client *ClientsStruct) SendAthenaQuery(query string, database string) {
+func (client *ClientsStruct) SendAthenaQuery(query string, database string) error {
 	location := "s3://testshorteddata"
 	queryId, err := client.athenaClient.StartQueryExecution(&athena.StartQueryExecutionInput{
 		QueryExecutionContext: &athena.QueryExecutionContext{Database: &database},
@@ -487,20 +488,48 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) {
 		log.Info("test", err.Error())
 	}
 
-	//TODO IMPLEMENT EXPONTENTIAL BACKOFF HERE
-	time.Sleep(10000000000)
-
-	result, err := client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
-		QueryExecutionId: queryId.QueryExecutionId,
-	})
+	var result *athena.GetQueryResultsOutput
+	maxResult := int64(10)
+	i := 0.
+	for {
+		timer := exponentialBackoffTimer(i, 1000)
+		<-timer.C
+		result, err = client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
+			MaxResults:       &maxResult,
+			QueryExecutionId: queryId.QueryExecutionId,
+		})
+		if i > 4 {
+			return fmt.Errorf("failed after 3 backoff periods")
+		}
+		if err == nil {
+			break
+		}
+		fmt.Println(err.Error())
+		i++
+	}
 
 	if err != nil {
 		log.Info("test", err.Error())
 	}
-	fmt.Println(len(result.ResultSet.Rows))
 
 	//TODO add method to auto increment results based on next token
+	//LOOK at GetQueryResultsPages
+	results := make([]*athena.ResultSet, 0)
+	results = append(results, result.ResultSet)
+	for result.NextToken != nil {
 
+		result, err = client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
+			MaxResults:       &maxResult,
+			QueryExecutionId: result.NextToken,
+		})
+		results = append(results, result.ResultSet)
+		fmt.Println(err)
+		fmt.Println(result.NextToken)
+	}
+
+	fmt.Println(len(results))
+
+	return nil
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb
@@ -521,4 +550,8 @@ func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
 		return &dynamodb.AttributeValue{N: &floatVal}
 	}
 	return nil
+}
+
+func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
+	return time.NewTimer(time.Duration((math.Pow(2., failure)-1)*timeSlot) * time.Millisecond)
 }
