@@ -476,6 +476,7 @@ func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQu
 
 //
 func (client *ClientsStruct) SendAthenaQuery(query string, database string) error {
+	fmt.Println(query)
 	location := "s3://testshorteddata"
 	queryId, err := client.athenaClient.StartQueryExecution(&athena.StartQueryExecutionInput{
 		QueryExecutionContext: &athena.QueryExecutionContext{Database: &database},
@@ -485,18 +486,20 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) erro
 		},
 	})
 	if err != nil {
-		log.Info("test", err.Error())
+		log.Info("SendAthenaQuery", err.Error())
 	}
 
-	var result *athena.GetQueryResultsOutput
-	maxResult := int64(10)
+	results := make([]*athena.ResultSet, 0)
 	i := 0.
 	for {
 		timer := exponentialBackoffTimer(i, 1000)
 		<-timer.C
-		result, err = client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
-			MaxResults:       &maxResult,
+		err = client.athenaClient.GetQueryResultsPages(&athena.GetQueryResultsInput{
 			QueryExecutionId: queryId.QueryExecutionId,
+		}, func(result *athena.GetQueryResultsOutput, lastPage bool) bool {
+			log.Debug("SendAthenaQuery", result.ResultSet.String())
+			results = append(results, result.ResultSet)
+			return result.NextToken != nil
 		})
 		if i > 4 {
 			return fmt.Errorf("failed after 3 backoff periods")
@@ -510,21 +513,6 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) erro
 
 	if err != nil {
 		log.Info("test", err.Error())
-	}
-
-	//TODO add method to auto increment results based on next token
-	//LOOK at GetQueryResultsPages
-	results := make([]*athena.ResultSet, 0)
-	results = append(results, result.ResultSet)
-	for result.NextToken != nil {
-
-		result, err = client.athenaClient.GetQueryResults(&athena.GetQueryResultsInput{
-			MaxResults:       &maxResult,
-			QueryExecutionId: result.NextToken,
-		})
-		results = append(results, result.ResultSet)
-		fmt.Println(err)
-		fmt.Println(result.NextToken)
 	}
 
 	fmt.Println(len(results))
