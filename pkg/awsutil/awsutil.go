@@ -41,7 +41,7 @@ type AwsUtiler interface {
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
-	SendAthenaQuery(query string, database string) error
+	SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error)
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -475,8 +475,7 @@ func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQu
 }
 
 //
-func (client *ClientsStruct) SendAthenaQuery(query string, database string) error {
-	fmt.Println(query)
+func (client *ClientsStruct) SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error) {
 	location := "s3://testshorteddata"
 	queryId, err := client.athenaClient.StartQueryExecution(&athena.StartQueryExecutionInput{
 		QueryExecutionContext: &athena.QueryExecutionContext{Database: &database},
@@ -486,7 +485,7 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) erro
 		},
 	})
 	if err != nil {
-		log.Info("SendAthenaQuery", err.Error())
+		log.Debug("SendAthenaQuery", err.Error())
 	}
 
 	results := make([]*athena.ResultSet, 0)
@@ -502,12 +501,12 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) erro
 			return result.NextToken != nil
 		})
 		if i > 4 {
-			return fmt.Errorf("failed after 3 backoff periods")
+			return nil, fmt.Errorf("failed after 3 backoff periods")
 		}
 		if err == nil {
 			break
 		}
-		fmt.Println(err.Error())
+		log.Debug("SendAthenaQuery", err.Error())
 		i++
 	}
 
@@ -515,9 +514,7 @@ func (client *ClientsStruct) SendAthenaQuery(query string, database string) erro
 		log.Info("test", err.Error())
 	}
 
-	fmt.Println(len(results))
-
-	return nil
+	return results, nil
 }
 
 //mapAttributeValue - map values to their attribute type in dynamodb
