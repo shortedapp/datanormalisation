@@ -42,6 +42,8 @@ type AwsUtiler interface {
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
 	SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error)
+	WriteToDynamoDB(tableName string, data interface{},
+		mapper func(resp interface{}, date int) []*map[string]interface{}, date int)
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -539,4 +541,63 @@ func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
 
 func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
 	return time.NewTimer(time.Duration((math.Pow(2., failure)-1)*timeSlot) * time.Millisecond)
+}
+
+//WriteToDynamoDB - write rows to dynamo and lift base write units to a higher value for ingestion
+//TODO allow setting of write units (both base and upper bound)
+func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
+	mapper func(resp interface{}, date int) []*map[string]interface{}, date int) {
+	//Update table capacity units
+	_, writeThroughput := updateDynamoWriteUnits(client, tableName, 25)
+
+	//Create a list of data to put into dynamo db
+	dataMapped := mapper(data, date)
+	putRequest := make(chan *map[string]interface{}, len(dataMapped))
+	for _, val := range dataMapped {
+		putRequest <- val
+	}
+	close(putRequest)
+
+	//Define a burst capacity for putting into dynamoDb. Set to write throughput to avoid significant ThroughputExceededErrors
+	burstChannel := make(chan *map[string]interface{}, writeThroughput)
+
+	//Create 1 second rate limiter
+	limiter := time.Tick(1000 * time.Millisecond)
+
+	//Continue until no jobs are left
+	for len(putRequest) > 0 {
+		//fill burst capacity to max or until no jobs are left
+		for len(burstChannel) < cap(burstChannel) && len(putRequest) > 0 {
+			burstChannel <- <-putRequest
+		}
+		//Create multiple puts
+		for len(burstChannel) > 0 {
+			go putRecord(client, <-burstChannel, tableName)
+		}
+		<-limiter
+	}
+
+	//Update table capacity units
+	updateDynamoWriteUnits(client, tableName, 5)
+}
+
+//TODO Clean this up
+func updateDynamoWriteUnits(clients AwsUtiler, tableName string, write int64) (int64, int64) {
+	readUnits, writeUnits := clients.GetDynamoDBTableThroughput(tableName)
+	err := clients.UpdateDynamoDBTableCapacity(tableName, readUnits, write)
+	if err != nil {
+		log.Warn("IngestRoutine", "unable to update write capacity units")
+		return readUnits, writeUnits
+	}
+
+	readThroughput, writeThroughput := clients.GetDynamoDBTableThroughput(tableName)
+	return readThroughput, writeThroughput
+}
+
+//TODO Cleant this up
+func putRecord(clients AwsUtiler, data *map[string]interface{}, table string) {
+	err := clients.PutDynamoDBItems(table, *data)
+	if err != nil {
+		log.Info("putRecord", err.Error())
+	}
 }
