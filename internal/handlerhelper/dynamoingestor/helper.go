@@ -30,45 +30,8 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) {
 		return
 	}
 
-	d.Clients.WriteToDynamoDB("testShorts", resp, CombinedShortJSONMapper, timeVal)
+	d.Clients.WriteToDynamoDB(tableName, resp, CombinedShortJSONMapper, timeVal)
 }
-
-// //WriteToDynamoDB - write rows to dynamo and lift base write units to a higher value for ingestion
-// func WriteToDynamoDB(Clients awsutil.AwsUtiler, tableName string, data interface{},
-// 	mapper func(resp interface{}, date int) []*map[string]interface{}, date int) {
-// 	//Update table capacity units
-// 	_, writeThroughput := ingestionutils.UpdateDynamoWriteUnits(Clients, tableName, 25)
-
-// 	//Create a list of data to put into dynamo db
-// 	dataMapped := mapper(data, date)
-// 	putRequest := make(chan *map[string]interface{}, len(dataMapped))
-// 	for _, val := range dataMapped {
-// 		putRequest <- val
-// 	}
-// 	close(putRequest)
-
-// 	//Define a burst capacity for putting into dynamoDb. Set to write throughput to avoid significant ThroughputExceededErrors
-// 	burstChannel := make(chan *map[string]interface{}, writeThroughput)
-
-// 	//Create 1 second rate limiter
-// 	limiter := time.Tick(1000 * time.Millisecond)
-
-// 	//Continue until no jobs are left
-// 	for len(putRequest) > 0 {
-// 		//fill burst capacity to max or until no jobs are left
-// 		for len(burstChannel) < cap(burstChannel) && len(putRequest) > 0 {
-// 			burstChannel <- <-putRequest
-// 		}
-// 		//Create multiple puts
-// 		for len(burstChannel) > 0 {
-// 			go putRecord(Clients, <-burstChannel, tableName)
-// 		}
-// 		<-limiter
-// 	}
-
-// 	//Update table capacity units
-// 	ingestionutils.UpdateDynamoWriteUnits(Clients, tableName, 5)
-// }
 
 //Function To map combinedshorts object to dynamo row
 func CombinedShortJSONMapper(resp interface{}, date int) []*map[string]interface{} {
@@ -88,10 +51,3 @@ func CombinedShortJSONMapper(resp interface{}, date int) []*map[string]interface
 	}
 	return result
 }
-
-// func putRecord(clients awsutil.AwsUtiler, data *map[string]interface{}, table string) {
-// 	err := clients.PutDynamoDBItems(table, *data)
-// 	if err != nil {
-// 		log.Info("putRecord", err.Error())
-// 	}
-// }
