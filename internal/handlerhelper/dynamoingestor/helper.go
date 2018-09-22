@@ -1,6 +1,7 @@
 package dynamoingestor
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -16,27 +17,30 @@ type Dynamoingestor struct {
 }
 
 // IngestRoutine - function to ingest data into DynamoDB
-func (d *Dynamoingestor) IngestRoutine(tableName string) {
+func (d *Dynamoingestor) IngestRoutine(tableName string) error {
 	currentTime := time.Now()
 	currentDay := currentTime.Format("20060102")
 	timeVal, err := strconv.Atoi(currentDay)
 	if err != nil {
 		log.Error("IngestRoutine", "failed to create int from date")
-		return
+		return err
 	}
 	resp, err := d.Clients.FetchJSONFileFromS3("shortedappjmk", "testShortedData/"+currentDay+".json", sharedata.UnmarshalCombinedResultJSON)
 	if err != nil {
 		log.Info("IngestRoutine", "unable to fetch data from s3")
-		return
+		return err
 	}
 
-	d.Clients.WriteToDynamoDB(tableName, resp, CombinedShortJSONMapper, timeVal)
+	return d.Clients.WriteToDynamoDB(tableName, resp, CombinedShortJSONMapper, timeVal)
 }
 
 //Function To map combinedshorts object to dynamo row
-func CombinedShortJSONMapper(resp interface{}, date int) []*map[string]interface{} {
+func CombinedShortJSONMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
 	//TODO uplift this to take a slice of additional input data
-	dataSet := resp.(sharedata.CombinedResultJSON)
+	dataSet, ok := resp.(sharedata.CombinedResultJSON)
+	if !ok {
+		return nil, fmt.Errorf("unable to cast to CombinedResultJSON")
+	}
 	result := make([]*map[string]interface{}, 0, len(dataSet.Result))
 	for _, data := range dataSet.Result {
 		attributes := make(map[string]interface{}, 6)
@@ -49,5 +53,5 @@ func CombinedShortJSONMapper(resp interface{}, date int) []*map[string]interface
 		attributes["Date"] = date
 		result = append(result, &attributes)
 	}
-	return result
+	return result, nil
 }

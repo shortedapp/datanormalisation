@@ -43,7 +43,7 @@ type AwsUtiler interface {
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
 	SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error)
 	WriteToDynamoDB(tableName string, data interface{},
-		mapper func(resp interface{}, date int) []*map[string]interface{}, date int)
+		mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -366,7 +366,7 @@ func (client *ClientsStruct) PutDynamoDBItems(tableName string, values map[strin
 
 	if err == nil {
 		log.Info("PutDynamoDBItems",
-			fmt.Sprintf("put code: %v", *mapDynamo["Code"].S))
+			fmt.Sprintf("%v", mapDynamo))
 	}
 
 	return err
@@ -535,6 +535,9 @@ func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
 	case reflect.Float32:
 		floatVal := fmt.Sprintf("%f", val.(float32))
 		return &dynamodb.AttributeValue{N: &floatVal}
+	case reflect.Float64:
+		floatVal := fmt.Sprintf("%f", val.(float64))
+		return &dynamodb.AttributeValue{N: &floatVal}
 	}
 	return nil
 }
@@ -546,12 +549,20 @@ func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
 //WriteToDynamoDB - write rows to dynamo and lift base write units to a higher value for ingestion
 //TODO allow setting of write units (both base and upper bound)
 func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
-	mapper func(resp interface{}, date int) []*map[string]interface{}, date int) {
+	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
+
+	//map data into an interface
+	dataMapped, err := mapper(data, date)
+
+	if err != nil {
+		log.Error("WriteToDynamoDB", "unable to cast data")
+		return err
+	}
+
 	//Update table capacity units
 	_, writeThroughput := updateDynamoWriteUnits(client, tableName, 25)
 
 	//Create a list of data to put into dynamo db
-	dataMapped := mapper(data, date)
 	putRequest := make(chan *map[string]interface{}, len(dataMapped))
 	for _, val := range dataMapped {
 		putRequest <- val
@@ -579,6 +590,7 @@ func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
 
 	//Update table capacity units
 	updateDynamoWriteUnits(client, tableName, 5)
+	return nil
 }
 
 //TODO Clean this up

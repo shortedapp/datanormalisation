@@ -1,6 +1,7 @@
 package topshortsingestor
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -15,25 +16,28 @@ type Topshortsingestor struct {
 }
 
 //IngestTopShorted - Reads the latest
-func (t *Topshortsingestor) IngestTopShorted(tableName string) {
+func (t *Topshortsingestor) IngestTopShorted(tableName string) error {
 
 	currentTime := time.Now()
 	currentDay := currentTime.Format("20060102")
 	resp, err := t.Clients.FetchJSONFileFromS3("shortedappjmk", "testShortedData/"+currentDay+".json", sharedata.UnmarshalCombinedResultJSON)
 	if err != nil {
 		log.Info("IngestRoutine", "unable to fetch data from s3")
-		return
+		return err
 	}
 
-	t.Clients.WriteToDynamoDB(tableName, resp, TopShortJSONMapper, 0)
+	return t.Clients.WriteToDynamoDB(tableName, resp, TopShortJSONMapper, 0)
 
 }
 
 //Function To map topshort object to dynamo row
-func TopShortJSONMapper(resp interface{}, date int) []*map[string]interface{} {
+func TopShortJSONMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
 	//TODO uplift this to take a slice of additional input data
-	data := resp.(sharedata.CombinedResultJSON)
-	dataResult := data.Result
+	dataSet, ok := resp.(sharedata.CombinedResultJSON)
+	if !ok {
+		return nil, fmt.Errorf("unable to cast to CombinedResultJSON")
+	}
+	dataResult := dataSet.Result
 
 	sort.Slice(dataResult, func(i, j int) bool {
 		return dataResult[i].Percent > dataResult[j].Percent
@@ -47,17 +51,5 @@ func TopShortJSONMapper(resp interface{}, date int) []*map[string]interface{} {
 		attributes["Percent"] = data.Percent
 		result = append(result, &attributes)
 	}
-	return result
-}
-
-func (t *Topshortsingestor) putRecord(short *sharedata.TopShortJSON, tableName string) {
-	attributes := make(map[string]interface{}, 6)
-	attributes["Position"] = short.Position
-	attributes["Code"] = short.Code
-	attributes["Percent"] = short.Percent
-
-	err := t.Clients.PutDynamoDBItems(tableName, attributes)
-	if err != nil {
-		log.Info("putRecord", err.Error())
-	}
+	return result, nil
 }

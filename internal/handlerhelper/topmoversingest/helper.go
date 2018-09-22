@@ -30,7 +30,7 @@ type OrderedTopMovers struct {
 }
 
 //MoversByCode
-type MoversByCode struct {
+type CodedTopMovers struct {
 	Code        string
 	DayChange   float64
 	WeekChange  float64
@@ -40,70 +40,10 @@ type MoversByCode struct {
 
 //IngestMovement - Calaculate the movement and store in dynamoDB
 func (t *Topmoversingestor) IngestMovement(tableName string) {
-	//TODO put this back in
-	//t.generateViews()
+	t.generateViews()
 
-	//TODO kick off these tasks in seperate go routines
-	orderedMovement := t.generateTopMoversInOrder()
-	codedMovement := t.generateMovementByCode()
-
-	//TODO Add channel logic to this task to ingest on each tasks completion
-	t.uploadToDynamoDB(orderedMovement, codedMovement)
-
-}
-
-func (t *Topmoversingestor) uploadToDynamoDB(ordedMovement []OrderedTopMovers, codeMovement []MoversByCode) {
-	//TODO add ingestion
-}
-
-func (t *Topmoversingestor) generateQueryResults(query string, database string, fn func(*athena.Row) (interface{}, error)) []*interface{} {
-	//Capture the results
-	result, _ := t.Clients.SendAthenaQuery(query, "test")
-	//Convert and return slice
-	return convertListOfResults(result, fn)
-}
-
-func (t *Topmoversingestor) generateMovementByCode() []MoversByCode {
-	//TODO load these queries from s3 or use named queries within athena
-	query := `WITH daydata AS
-	(SELECT latest.code, latest.percent-day.percent as daydiff
-	from "test"."latest"
-	inner join "test"."day" on "latest".code = "day".code),
-	weekdata AS
-	(SELECT latest.code, latest.percent-week.percent as weekdiff
-	from "test"."latest"
-	inner join "test"."week" on "latest".code = "week".code),
-	monthdata AS
-	(SELECT latest.code, latest.percent-month.percent as monthdiff
-	from "test"."latest"
-	inner join "test"."month" on "latest".code = "month".code),
-	yeardata AS
-	(SELECT latest.code, latest.percent-year.percent as yeardiff
-	from "test"."latest"
-	inner join "test"."year" on "latest".code = "year".code)
-	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
-	FROM daydata
-	left join weekdata on weekdata.code = daydata.code
-	left join monthdata on monthdata.code = daydata.code
-	left join yeardata on yeardata.code = daydata.code`
-
-	//run query and return results
-	movers := t.generateQueryResults(query, "test", athenaToMoversByCode)
-
-	//Convert from interace to required type
-	//TODO see if there is a better way to do this
-	results := make([]MoversByCode, 0, len(movers))
-	for _, mover := range movers {
-		results = append(results, (*mover).(MoversByCode))
-	}
-	fmt.Println(results)
-	return results
-
-}
-
-func (t *Topmoversingestor) generateTopMoversInOrder() []OrderedTopMovers {
-	//TODO load these queries from s3 or use named queries within athena
-	query := `WITH daydata AS
+	//Generate queries and uploads in go routines
+	orderedTopMoversQuery := `WITH daydata AS
 	(SELECT latest.code, latest.percent-day.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-day.percent) as ordernum
 	from "test"."latest"
 	left join "test"."day" on "latest".code = "day".code),
@@ -127,24 +67,100 @@ func (t *Topmoversingestor) generateTopMoversInOrder() []OrderedTopMovers {
 	WHERE daydata.ordernum < 100
 	ORDER BY daydata.ordernum ASC`
 
-	//run query and return results
-	movers := t.generateQueryResults(query, "test", athenaToTopMovers)
+	codedTopMoversQuery := `WITH daydata AS
+	(SELECT latest.code, latest.percent-day.percent as daydiff
+	from "test"."latest"
+	inner join "test"."day" on "latest".code = "day".code),
+	weekdata AS
+	(SELECT latest.code, latest.percent-week.percent as weekdiff
+	from "test"."latest"
+	inner join "test"."week" on "latest".code = "week".code),
+	monthdata AS
+	(SELECT latest.code, latest.percent-month.percent as monthdiff
+	from "test"."latest"
+	inner join "test"."month" on "latest".code = "month".code),
+	yeardata AS
+	(SELECT latest.code, latest.percent-year.percent as yeardiff
+	from "test"."latest"
+	inner join "test"."year" on "latest".code = "year".code)
+	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
+	FROM daydata
+	left join weekdata on weekdata.code = daydata.code
+	left join monthdata on monthdata.code = daydata.code
+	left join yeardata on yeardata.code = daydata.code`
 
-	//Convert from interace to required type
-	//TODO see if there is a better way to do this
-	results := make([]OrderedTopMovers, 0, len(movers))
-	for _, mover := range movers {
-		results = append(results, (*mover).(OrderedTopMovers))
-	}
-	fmt.Println(results)
-	return results
+	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper)
+	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper)
 }
 
-func convertListOfResults(results []*athena.ResultSet, translate func(*athena.Row) (interface{}, error)) []*interface{} {
+func (t *Topmoversingestor) queryAndUploadToDynamoDB(query string, athenaTable string, dynamoTable string,
+	athenaFn func(*athena.Row) (interface{}, error), dynamoFn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
+	result := t.generateQueryResults(query, athenaTable, athenaFn)
+	t.uploadToDynamoDB(dynamoTable, result, dynamoFn)
+}
+
+func (t *Topmoversingestor) uploadToDynamoDB(table string, data interface{}, fn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
+	t.Clients.WriteToDynamoDB(table, data, fn, 0)
+}
+
+//OrderedTopMoversMapper - Map
+func OrderedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
+	//TODO uplift this to take a slice of additional input data
+	data, ok := resp.([]*interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to cast to CombinedResultJSON")
+	}
+	result := make([]*map[string]interface{}, 0, len(data))
+	for _, moverInter := range data {
+		mover := (*moverInter).(OrderedTopMovers)
+		attributes := make(map[string]interface{}, 9)
+		attributes["Position"] = mover.Order
+		attributes["DayCode"] = mover.DayCode
+		attributes["DayChange"] = mover.DayChange
+		attributes["WeekCode"] = mover.WeekCode
+		attributes["WeekChange"] = mover.WeekChange
+		attributes["MonthCode"] = mover.MonthCode
+		attributes["MonthChange"] = mover.MonthChange
+		attributes["YearCode"] = mover.YearCode
+		attributes["YearChange"] = mover.YearChange
+		result = append(result, &attributes)
+	}
+	return result, nil
+}
+
+func CodedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
+	//TODO uplift this to take a slice of additional input data
+	data, ok := resp.([]*interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to cast to CombinedResultJSON")
+	}
+	result := make([]*map[string]interface{}, 0, len(data))
+	for _, moverInter := range data {
+		mover := (*moverInter).(CodedTopMovers)
+		attributes := make(map[string]interface{}, 9)
+		attributes["Code"] = mover.Code
+		attributes["DayChange"] = mover.DayChange
+		attributes["WeekChange"] = mover.WeekChange
+		attributes["MonthChange"] = mover.MonthChange
+		attributes["YearChange"] = mover.YearChange
+		result = append(result, &attributes)
+	}
+	return result, nil
+}
+
+func (t *Topmoversingestor) generateQueryResults(query string, database string, fn func(*athena.Row) (interface{}, error)) interface{} {
+	//Capture the results
+	result, _ := t.Clients.SendAthenaQuery(query, database)
+	//Convert and return slice
+	return convertListOfResults(result, fn)
+}
+
+func convertListOfResults(results []*athena.ResultSet, translate func(*athena.Row) (interface{}, error)) interface{} {
 	resultList := make([]*interface{}, 0)
 
-	//Create channel for translated movers
+	//Create channel for translated results
 	items := make(chan *interface{}, len(results)*1000)
+
 	//Create channel to indicated the topMovers slice is complete
 	done := make(chan bool)
 
@@ -176,7 +192,7 @@ func convertListOfResults(results []*athena.ResultSet, translate func(*athena.Ro
 		done <- true
 	}(items, done)
 
-	// All results transfromed and channel closed
+	// All results transformed and channel closed
 	wg.Wait()
 	close(items)
 
@@ -231,7 +247,7 @@ func athenaToTopMovers(row *athena.Row) (interface{}, error) {
 }
 
 func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
-	stockMovement := MoversByCode{}
+	stockMovement := CodedTopMovers{}
 
 	//Get the Code
 	if row.Data[0].VarCharValue != nil {
