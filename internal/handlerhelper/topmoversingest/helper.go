@@ -103,7 +103,7 @@ func (t *Topmoversingestor) uploadToDynamoDB(table string, data interface{}, fn 
 	t.Clients.WriteToDynamoDB(table, data, fn, 0)
 }
 
-//OrderedTopMoversMapper - Map
+//OrderedTopMoversMapper - Map OrderedTopMover to go map for dynamo ingestion
 func OrderedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
 	//TODO uplift this to take a slice of additional input data
 	data, ok := resp.([]*interface{})
@@ -128,6 +128,7 @@ func OrderedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface
 	return result, nil
 }
 
+//CodedTopMoversMapper - Map CodedTopMover to go map for dynamo ingestion
 func CodedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}, error) {
 	//TODO uplift this to take a slice of additional input data
 	data, ok := resp.([]*interface{})
