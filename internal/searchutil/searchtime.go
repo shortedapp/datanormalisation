@@ -1,10 +1,11 @@
-package searchutils
+package searchutil
 
 import (
 	"strconv"
 	"time"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
+	"github.com/shortedapp/shortedfunctions/pkg/timeslotutil"
 )
 
 type SearchPeriod int
@@ -22,19 +23,13 @@ const (
 	Latest
 )
 
-func GetSearchWindow(a awsutils.AwsUtiler, tableName string, keyName string, period SearchPeriod) (int64, int64) {
+func GetSearchWindow(a awsutil.AwsUtiler, tableName string, keyName string, period SearchPeriod) (int64, int64) {
 	var duration int
 	now := time.Now()
 	nowDate, _ := strconv.Atoi(now.UTC().Format("20060102"))
 	switch period {
-	case 0:
-		duration, _ = strconv.Atoi(now.AddDate(-1, 0, 0).UTC().Format("20060102"))
-	case 1:
-		duration, _ = strconv.Atoi(now.AddDate(0, -1, 0).UTC().Format("20060102"))
-	case 2:
-		duration, _ = strconv.Atoi(now.AddDate(0, 0, -7).UTC().Format("20060102"))
-	case 3:
-		duration, _ = strconv.Atoi(now.AddDate(0, 0, -1).UTC().Format("20060102"))
+	case 0, 1, 2, 3:
+		duration = timeslotutil.GetPreviousDate(int(period), now)
 	case 4:
 		res, err := a.FetchDynamoDBLastModified(tableName, keyName)
 		if err != nil {

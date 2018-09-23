@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +17,7 @@ import (
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) FetchCSVFileFromS3(bucketName string, key string, f func(s [][]string) (interface{}, error)) (interface{}, error) {

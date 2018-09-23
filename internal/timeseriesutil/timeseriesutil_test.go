@@ -4,16 +4,16 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/shortedapp/shortedfunctions/internal/searchutils"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/internal/searchutil"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockAwsUtilClients struct {
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
-func (m mockAwsUtilClients) TimeRangeQueryDynamoDB(query *awsutils.DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error) {
+func (m mockAwsUtilClients) TimeRangeQueryDynamoDB(query *awsutil.DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error) {
 	res := make([]map[string]*dynamodb.AttributeValue, 0, 1)
 	fakeDate := "20180712"
 	fakePercent := "1.0123"
@@ -26,12 +26,12 @@ func (m mockAwsUtilClients) TimeRangeQueryDynamoDB(query *awsutils.DynamoDBRange
 func TestFetchTimeSeries(t *testing.T) {
 
 	testCases := []struct {
-		searchPeriod searchutils.SearchPeriod
+		searchPeriod searchutil.SearchPeriod
 		code         string
 		result       bool
 	}{
-		{searchutils.Latest, "", true},
-		{searchutils.Month, "test", false},
+		{searchutil.Latest, "", true},
+		{searchutil.Month, "test", false},
 	}
 
 	for _, testCase := range testCases {

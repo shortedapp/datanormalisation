@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
@@ -17,7 +17,7 @@ import (
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) PutFileToS3(string, string, []byte) error {

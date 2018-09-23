@@ -3,31 +3,17 @@ package dynamoingestor
 import (
 	"fmt"
 	"io/ioutil"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
-
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
-	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 type mockAwsUtilClients struct {
 	TestOption int
-	awsutils.AwsUtiler
-}
-
-func (m mockAwsUtilClients) PutDynamoDBItems(tableName string, values map[string]interface{}) error {
-	if m.TestOption == 0 {
-		return fmt.Errorf("test failure")
-	}
-
-	return nil
+	awsutil.AwsUtiler
 }
 
 func (m mockAwsUtilClients) FetchJSONFileFromS3(bucket string, key string, f func([]byte) (interface{}, error)) (interface{}, error) {
@@ -39,52 +25,49 @@ func (m mockAwsUtilClients) FetchJSONFileFromS3(bucket string, key string, f fun
 	return res, nil
 }
 
-func (m mockAwsUtilClients) GetDynamoDBTableThroughput(tableName string) (int64, int64) {
-	return 2, 2
-}
-
-func (m mockAwsUtilClients) UpdateDynamoDBTableCapacity(tableName string, readCap int64, writeCap int64) error {
+func (m mockAwsUtilClients) WriteToDynamoDB(tableName string, data interface{},
+	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
 	return nil
 }
 
-func TestPutRecord(t *testing.T) {
-	log.Logger.Vlogging = true
-	log.Logger.Level = 1
-	testTime, _ := strconv.Atoi(time.Now().UTC().Format("20060102"))
+func TestCombinedShortJSONMapper(t *testing.T) {
 	testCases := []struct {
-		testOption int
-		val        string
+		input interface{}
+		len   int
+		code  string
+		err   bool
 	}{
-		{0, "putRecord"},
-		{1, ""},
+		{sharedata.CombinedResultJSON{Result: []*sharedata.CombinedShortJSON{
+			&sharedata.CombinedShortJSON{Name: "test", Code: "TST", Shorts: 10, Total: 20, Percent: 0.5, Industry: "TEST"}}}, 1, "TST", false},
+		{1, 1, "TST", true},
 	}
 
-	for _, testCase := range testCases {
-		client := mockAwsUtilClients{testCase.testOption, nil}
-		d := Dynamoingestor{Clients: client}
-		data := sharedata.CombinedShortJSON{Name: "test", Code: "TST", Shorts: 10, Total: 20, Percent: 0.5, Industry: "TEST"}
-		res := testingutil.CaptureStandardErr(func() { d.putRecord(&data, testTime) }, log.Logger.StdLogger)
-		assert.Equal(t, true, strings.Contains(res, testCase.val))
+	for _, test := range testCases {
+		res, err := CombinedShortJSONMapper(test.input, 0)
+		if err != nil {
+			assert.Equal(t, test.err, err != nil)
+		} else {
+			assert.Equal(t, test.len, len(res))
+			assert.Equal(t, test.code, (*res[0])["Code"])
+		}
 	}
+
 }
 
 func TestIngestRoutine(t *testing.T) {
-	log.Logger.Vlogging = true
-	log.Logger.Level = 1
 	testCases := []struct {
 		testOption int
-		val        string
+		err        bool
 	}{
-		{0, "unable to fetch data from s3"},
-		{1, ""},
+		{0, true},
+		{1, false},
 	}
 
-	for _, testCase := range testCases {
-		client := mockAwsUtilClients{testCase.testOption, nil}
+	for _, test := range testCases {
+		client := mockAwsUtilClients{TestOption: test.testOption}
 		d := Dynamoingestor{Clients: client}
-
-		res := testingutil.CaptureStandardErr(func() { d.IngestRoutine("test") }, log.Logger.StdLogger)
-		assert.Equal(t, true, strings.Contains(res, testCase.val))
+		res := d.IngestRoutine("test")
+		assert.Equal(t, test.err, res != nil)
 	}
 
 }

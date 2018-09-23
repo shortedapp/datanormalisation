@@ -7,13 +7,13 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
 )
 
 //Datafetch - struct to enable testing
 type Datafetch struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 //FetchRoutine - Fetch a list of data on a daily basis

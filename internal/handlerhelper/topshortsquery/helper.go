@@ -5,12 +5,12 @@ import (
 	"strconv"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
-	"github.com/shortedapp/shortedfunctions/pkg/awsutils"
+	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 )
 
 //Topshortsquery - struct to enable testing
 type Topshortsquery struct {
-	Clients awsutils.AwsUtiler
+	Clients awsutil.AwsUtiler
 }
 
 //QueryTopShorted - Reads the latest

@@ -1,10 +1,11 @@
-package awsutils
+package awsutil
 
 import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/aws/aws-sdk-go/service/athena/athenaiface"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -37,6 +40,10 @@ type AwsUtiler interface {
 	UpdateDynamoDBTableCapacity(string, int64, int64) error
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
+	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
+	SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error)
+	WriteToDynamoDB(tableName string, data interface{},
+		mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error
 }
 
 //DynamoDBRangeQuery - Type for dynamoDB range query
@@ -49,12 +56,22 @@ type DynamoDBRangeQuery struct {
 	High          int64
 }
 
+//DynamoDBItemQuery - Type for dynamoDB specific item query
+type DynamoDBItemQuery struct {
+	TableName     string
+	PartitionName string
+	PartitionKey  string
+	SortName      string
+	SortValue     string
+}
+
 //ClientsStruct - Structure to hold the various AWS clients
 type ClientsStruct struct {
 	dynamoClient     dynamodbiface.DynamoDBAPI
 	s3DownloadClient s3manageriface.DownloaderAPI
 	s3UploadClient   s3manageriface.UploaderAPI
 	kinesisClient    kinesisiface.KinesisAPI
+	athenaClient     athenaiface.AthenaAPI
 }
 
 // GenerateAWSClients generates new AWS clients based on string array
@@ -70,6 +87,8 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 			clientStruct.dynamoClient = dynamodb.New(sess)
 		case "kinesis":
 			clientStruct.kinesisClient = kinesis.New(sess)
+		case "athena":
+			clientStruct.athenaClient = athena.New(sess)
 		}
 	}
 	return clientStruct
@@ -347,7 +366,7 @@ func (client *ClientsStruct) PutDynamoDBItems(tableName string, values map[strin
 
 	if err == nil {
 		log.Info("PutDynamoDBItems",
-			fmt.Sprintf("put code: %v", *mapDynamo["Code"].S))
+			fmt.Sprintf("%v", mapDynamo))
 	}
 
 	return err
@@ -381,6 +400,29 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	ticker.Stop()
 
 	return nil
+}
+
+// GetItemByPartAndSortDynamoDB - get a specific item from DynamoDB
+// inputs:
+//	- query: DynamoDBItemQuery (assumes number sort key for now)
+func (client *ClientsStruct) GetItemByPartAndSortDynamoDB(query *DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error) {
+
+	//Make the request
+	res, err := client.dynamoClient.GetItem(&dynamodb.GetItemInput{
+		TableName: &query.TableName,
+		Key: map[string]*dynamodb.AttributeValue{
+			query.PartitionKey: &dynamodb.AttributeValue{S: &query.PartitionName},
+			query.SortName:     &dynamodb.AttributeValue{N: &query.SortValue},
+		},
+	})
+
+	if err != nil {
+		log.Info("GetItemByPartAndSortDynamoDB", err.Error())
+		return nil, err
+	}
+
+	//Return the result
+	return res.Item, nil
 }
 
 // BatchGetItemsDynamoDB - batch get up to 100 items from DynamoDB
@@ -434,6 +476,49 @@ func (client *ClientsStruct) TimeRangeQueryDynamoDB(queryObject *DynamoDBRangeQu
 	return res.Items, err
 }
 
+//
+func (client *ClientsStruct) SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error) {
+	location := "s3://testshorteddata"
+	queryId, err := client.athenaClient.StartQueryExecution(&athena.StartQueryExecutionInput{
+		QueryExecutionContext: &athena.QueryExecutionContext{Database: &database},
+		QueryString:           &query,
+		ResultConfiguration: &athena.ResultConfiguration{
+			OutputLocation: &location,
+		},
+	})
+	if err != nil {
+		log.Debug("SendAthenaQuery", err.Error())
+	}
+
+	results := make([]*athena.ResultSet, 0)
+	i := 0.
+	for {
+		timer := exponentialBackoffTimer(i, 1000)
+		<-timer.C
+		err = client.athenaClient.GetQueryResultsPages(&athena.GetQueryResultsInput{
+			QueryExecutionId: queryId.QueryExecutionId,
+		}, func(result *athena.GetQueryResultsOutput, lastPage bool) bool {
+			log.Debug("SendAthenaQuery", result.ResultSet.String())
+			results = append(results, result.ResultSet)
+			return result.NextToken != nil
+		})
+		if i > 4 {
+			return nil, fmt.Errorf("failed after 3 backoff periods")
+		}
+		if err == nil {
+			break
+		}
+		log.Debug("SendAthenaQuery", err.Error())
+		i++
+	}
+
+	if err != nil {
+		log.Info("test", err.Error())
+	}
+
+	return results, nil
+}
+
 //mapAttributeValue - map values to their attribute type in dynamodb
 func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
 	v := reflect.ValueOf(val)
@@ -450,6 +535,81 @@ func mapAttributeValue(val interface{}) *dynamodb.AttributeValue {
 	case reflect.Float32:
 		floatVal := fmt.Sprintf("%f", val.(float32))
 		return &dynamodb.AttributeValue{N: &floatVal}
+	case reflect.Float64:
+		floatVal := fmt.Sprintf("%f", val.(float64))
+		return &dynamodb.AttributeValue{N: &floatVal}
 	}
 	return nil
+}
+
+func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
+	return time.NewTimer(time.Duration((math.Pow(2., failure)-1)*timeSlot) * time.Millisecond)
+}
+
+//WriteToDynamoDB - write rows to dynamo and lift base write units to a higher value for ingestion
+//TODO allow setting of write units (both base and upper bound)
+func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
+	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
+
+	log.Error("WriteToDynamoDB", "step 1")
+	//map data into an interface
+	dataMapped, err := mapper(data, date)
+	log.Error("WriteToDynamoDB", "step 2")
+	if err != nil {
+		log.Error("WriteToDynamoDB", "unable to cast data")
+		return err
+	}
+	log.Error("WriteToDynamoDB", "step 3")
+	//Update table capacity units
+	_, writeThroughput := updateDynamoWriteUnits(client, tableName, 25)
+
+	//Create a list of data to put into dynamo db
+	putRequest := make(chan *map[string]interface{}, len(dataMapped))
+	for _, val := range dataMapped {
+		putRequest <- val
+	}
+	close(putRequest)
+
+	//Define a burst capacity for putting into dynamoDb. Set to write throughput to avoid significant ThroughputExceededErrors
+	burstChannel := make(chan *map[string]interface{}, writeThroughput)
+
+	//Create 1 second rate limiter
+	limiter := time.Tick(1000 * time.Millisecond)
+
+	//Continue until no jobs are left
+	for len(putRequest) > 0 {
+		//fill burst capacity to max or until no jobs are left
+		for len(burstChannel) < cap(burstChannel) && len(putRequest) > 0 {
+			burstChannel <- <-putRequest
+		}
+		//Create multiple puts
+		for len(burstChannel) > 0 {
+			go putRecord(client, <-burstChannel, tableName)
+		}
+		<-limiter
+	}
+
+	//Update table capacity units
+	updateDynamoWriteUnits(client, tableName, 5)
+	return nil
+}
+
+//TODO Clean this up
+func updateDynamoWriteUnits(clients AwsUtiler, tableName string, write int64) (int64, int64) {
+	readUnits, writeUnits := clients.GetDynamoDBTableThroughput(tableName)
+	err := clients.UpdateDynamoDBTableCapacity(tableName, readUnits, write)
+	if err != nil {
+		log.Warn("IngestRoutine", "unable to update write capacity units")
+		return readUnits, writeUnits
+	}
+
+	readThroughput, writeThroughput := clients.GetDynamoDBTableThroughput(tableName)
+	return readThroughput, writeThroughput
+}
+
+func putRecord(clients AwsUtiler, data *map[string]interface{}, table string) {
+	err := clients.PutDynamoDBItems(table, *data)
+	if err != nil {
+		log.Info("putRecord", err.Error())
+	}
 }
