@@ -551,14 +551,15 @@ func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
 func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
 	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
 
+	log.Error("WriteToDynamoDB", "step 1")
 	//map data into an interface
 	dataMapped, err := mapper(data, date)
-
+	log.Error("WriteToDynamoDB", "step 2")
 	if err != nil {
 		log.Error("WriteToDynamoDB", "unable to cast data")
 		return err
 	}
-
+	log.Error("WriteToDynamoDB", "step 3")
 	//Update table capacity units
 	_, writeThroughput := updateDynamoWriteUnits(client, tableName, 25)
 
@@ -606,7 +607,6 @@ func updateDynamoWriteUnits(clients AwsUtiler, tableName string, write int64) (i
 	return readThroughput, writeThroughput
 }
 
-//TODO Cleant this up
 func putRecord(clients AwsUtiler, data *map[string]interface{}, table string) {
 	err := clients.PutDynamoDBItems(table, *data)
 	if err != nil {

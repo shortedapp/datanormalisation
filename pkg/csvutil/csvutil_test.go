@@ -1,7 +1,6 @@
 package csvutil
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -28,7 +27,6 @@ func TestReadCSVBytesNoChecks(t *testing.T) {
 		}
 		for i, line := range result {
 			for j, str := range line {
-				fmt.Println(testCase.expected[i][j] + ":" + str)
 				assert.Equal(t, testCase.expected[i][j], str)
 			}
 		}

@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
+
+	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
+
 	"net/http"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/aws/aws-sdk-go/service/athena/athenaiface"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -14,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/shortedapp/shortedfunctions/pkg/testingutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,6 +38,15 @@ type mockKinesisClient struct {
 
 type mockDynamoDBClient struct {
 	dynamodbiface.DynamoDBAPI
+}
+
+type mockAthenaClient struct {
+	athenaiface.AthenaAPI
+}
+
+type mockAwsClients struct {
+	TestOption int
+	AwsUtiler
 }
 
 type FakeKinesisDoc struct {
@@ -69,6 +85,15 @@ func (m *mockDynamoDBClient) PutItem(item *dynamodb.PutItemInput) (*dynamodb.Put
 	}
 	return nil, nil
 }
+
+func (m *mockAwsClients) PutDynamoDBItems(tableName string, values map[string]interface{}) error {
+	if m.TestOption == 0 {
+		return fmt.Errorf("test failure")
+	}
+
+	return nil
+}
+
 func (m *mockDynamoDBClient) UpdateTable(item *dynamodb.UpdateTableInput) (*dynamodb.UpdateTableOutput, error) {
 	if *item.TableName == "test" {
 		return nil, fmt.Errorf("test")
@@ -76,9 +101,21 @@ func (m *mockDynamoDBClient) UpdateTable(item *dynamodb.UpdateTableInput) (*dyna
 	return nil, nil
 }
 
+func (m *mockAwsClients) UpdateDynamoDBTableCapacity(table string, read int64, write int64) error {
+	if table == "fail" {
+		return fmt.Errorf("error")
+	}
+	return nil
+}
+
+func (m *mockAwsClients) GetDynamoDBTableThroughput(table string) (int64, int64) {
+	return 5, 5
+}
+
 func (m *mockDynamoDBClient) DescribeTable(table *dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error) {
 	state := "ACTIVE"
-	tableDescription := &dynamodb.TableDescription{TableStatus: &state}
+	val := int64(1)
+	tableDescription := &dynamodb.TableDescription{TableStatus: &state, ProvisionedThroughput: &dynamodb.ProvisionedThroughputDescription{ReadCapacityUnits: &val, WriteCapacityUnits: &val}}
 	return &dynamodb.DescribeTableOutput{Table: tableDescription}, nil
 }
 
@@ -97,6 +134,13 @@ func (m *mockDynamoDBClient) BatchGetItem(in *dynamodb.BatchGetItemInput) (*dyna
 	attValues = append(attValues, map[string]*dynamodb.AttributeValue{"Code": &dynamodb.AttributeValue{S: &stringVal}})
 	mapResponses["test"] = attValues
 	return &dynamodb.BatchGetItemOutput{Responses: mapResponses}, nil
+}
+
+func (m *mockAthenaClient) StartQueryExecution(in *athena.StartQueryExecutionInput) (*athena.StartQueryExecutionOutput, error) {
+	return &athena.StartQueryExecutionOutput{}, nil
+}
+func (m *mockAthenaClient) GetQueryResultsPages(in *athena.GetQueryResultsInput, fn func(result *athena.GetQueryResultsOutput, lastPage bool) bool) error {
+	return nil
 }
 
 func (m *mockDynamoDBClient) GetItem(item *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
@@ -208,6 +252,14 @@ func TestFetchCSVFileFromS3(t *testing.T) {
 
 	assert.True(t, err != nil)
 
+}
+
+func TestSendAthenaQuery(t *testing.T) {
+	//TODO enhance these tests
+	mockAthenaClient := mockAthenaClient{}
+	client := ClientsStruct{athenaClient: &mockAthenaClient}
+	_, err := client.SendAthenaQuery("test", "test")
+	assert.True(t, err == nil)
 }
 
 func TestPutFileToS3(t *testing.T) {
@@ -378,6 +430,29 @@ func TestTimeRangeQueryDynamoDB(t *testing.T) {
 	assert.True(t, err == nil)
 }
 
+func TestWriteToDynamoDB(t *testing.T) {
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+	log.Logger.Vlogging = true
+	log.Logger.Level = 1
+	testCases := []struct {
+		err bool
+		fn  func(resp interface{}, date int) ([]*map[string]interface{}, error)
+	}{
+		{false, func(resp interface{}, date int) ([]*map[string]interface{}, error) {
+			return make([]*map[string]interface{}, 0, 1), nil
+		}},
+		{true, func(resp interface{}, date int) ([]*map[string]interface{}, error) {
+			return nil, fmt.Errorf("error")
+		}},
+	}
+
+	for _, testCase := range testCases {
+		err := client.WriteToDynamoDB("test", 1, testCase.fn, 0)
+		assert.Equal(t, testCase.err, err != nil)
+	}
+}
+
 func TestMapAttributeValue(t *testing.T) {
 	testString := "test"
 	res := mapAttributeValue(testString)
@@ -395,9 +470,53 @@ func TestMapAttributeValue(t *testing.T) {
 	res = mapAttributeValue(testFloat32)
 	assert.Equal(t, fmt.Sprintf("%f", testFloat32), *res.N)
 
+	testFloat64 := float64(13.012)
+	res = mapAttributeValue(testFloat64)
+	assert.Equal(t, fmt.Sprintf("%f", testFloat64), *res.N)
+
 	testUint8 := uint8(1)
 	res = mapAttributeValue(testUint8)
 	var result *dynamodb.AttributeValue
 	assert.Equal(t, result, res)
+
+}
+
+func TestUpdateDynamoWriteUnits(t *testing.T) {
+	client := mockAwsClients{}
+	log.Logger.Level = 1
+	log.Logger.Vlogging = true
+	testCases := []struct {
+		table     string
+		err       bool
+		errString string
+	}{
+		{"fail", true, "IngestRoutine"},
+		{"test", false, "IngestRoutine"},
+	}
+	for _, test := range testCases {
+		res := testingutil.CaptureStandardErr(func() { updateDynamoWriteUnits(&client, test.table, 5) }, log.Logger.StdLogger)
+		assert.Equal(t, test.err, strings.Contains(res, test.errString))
+	}
+}
+
+func TestPutRecord(t *testing.T) {
+	mockDynamoClient := mockDynamoDBClient{}
+	client := ClientsStruct{dynamoClient: &mockDynamoClient}
+	log.Logger.Level = 1
+	log.Logger.Vlogging = true
+
+	testCases := []struct {
+		table     string
+		err       bool
+		errString string
+	}{
+		{"test2", true, "putRecord"},
+		{"test", false, ""},
+	}
+	for _, test := range testCases {
+		fakeData := make(map[string]interface{})
+		logResult := testingutil.CaptureStandardErr(func() { putRecord(&client, &fakeData, test.table) }, log.Logger.StdLogger)
+		assert.Equal(t, test.err, strings.Contains(logResult, "putRecord"))
+	}
 
 }

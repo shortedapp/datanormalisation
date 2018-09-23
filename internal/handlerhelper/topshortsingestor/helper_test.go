@@ -16,14 +16,6 @@ type mockAwsUtilClients struct {
 	awsutil.AwsUtiler
 }
 
-// func (m mockAwsUtilClients) PutDynamoDBItems(tableName string, values map[string]interface{}) error {
-// 	if m.TestOption == 0 {
-// 		return fmt.Errorf("test failure")
-// 	}
-
-// 	return nil
-// }
-
 func (m mockAwsUtilClients) FetchJSONFileFromS3(bucket string, key string, f func([]byte) (interface{}, error)) (interface{}, error) {
 	if m.TestOption == 0 {
 		return nil, fmt.Errorf("err")
@@ -37,14 +29,6 @@ func (m mockAwsUtilClients) WriteToDynamoDB(tablename string, data interface{},
 	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
 	return nil
 }
-
-// func (m mockAwsUtilClients) GetDynamoDBTableThroughput(tableName string) (int64, int64) {
-// 	return 2, 2
-// }
-
-// func (m mockAwsUtilClients) UpdateDynamoDBTableCapacity(tableName string, readCap int64, writeCap int64) error {
-// 	return nil
-// }
 
 func TestTopShortJSONMapper(t *testing.T) {
 	testCases := []struct {
