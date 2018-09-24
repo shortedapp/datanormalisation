@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/shortedapp/shortedfunctions/internal/moversdata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/shortedapp/shortedfunctions/pkg/timeslotutil"
 )
@@ -14,28 +15,6 @@ import (
 //Topmoversingestor - struct to enable testing
 type Topmoversingestor struct {
 	Clients awsutil.AwsUtiler
-}
-
-//OrderedTopMovers
-type OrderedTopMovers struct {
-	Order       int
-	DayCode     string
-	DayChange   float64
-	WeekCode    string
-	WeekChange  float64
-	MonthCode   string
-	MonthChange float64
-	YearCode    string
-	YearChange  float64
-}
-
-//MoversByCode
-type CodedTopMovers struct {
-	Code        string
-	DayChange   float64
-	WeekChange  float64
-	MonthChange float64
-	YearChange  float64
 }
 
 //IngestMovement - Calaculate the movement and store in dynamoDB
@@ -82,21 +61,29 @@ func (t *Topmoversingestor) IngestMovement(tableName string) {
 	yeardata AS
 	(SELECT latest.code, latest.percent-year.percent as yeardiff
 	from "test"."latest"
-	inner join "test"."year" on "latest".code = "year".code)
+	right join "test"."year" on "latest".code = "year".code)
 	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
 	FROM daydata
-	left join weekdata on weekdata.code = daydata.code
-	left join monthdata on monthdata.code = daydata.code
-	left join yeardata on yeardata.code = daydata.code`
+	right join weekdata on weekdata.code = daydata.code
+	right join monthdata on monthdata.code = daydata.code
+	right join yeardata on yeardata.code = daydata.code`
 
-	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper)
-	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper)
+	orderedDone := make(chan bool)
+	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper, orderedDone)
+
+	codedDone := make(chan bool)
+	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper, codedDone)
+	<-orderedDone
+	<-codedDone
+
+	//TODO add code to drop stale entries
 }
 
 func (t *Topmoversingestor) queryAndUploadToDynamoDB(query string, athenaTable string, dynamoTable string,
-	athenaFn func(*athena.Row) (interface{}, error), dynamoFn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
+	athenaFn func(*athena.Row) (interface{}, error), dynamoFn func(resp interface{}, date int) ([]*map[string]interface{}, error), done chan bool) {
 	result := t.generateQueryResults(query, athenaTable, athenaFn)
 	t.uploadToDynamoDB(dynamoTable, result, dynamoFn)
+	done <- true
 }
 
 func (t *Topmoversingestor) uploadToDynamoDB(table string, data interface{}, fn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
@@ -112,7 +99,7 @@ func OrderedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface
 	}
 	result := make([]*map[string]interface{}, 0, len(data))
 	for _, moverInter := range data {
-		mover := (*moverInter).(OrderedTopMovers)
+		mover := (*moverInter).(moversdata.OrderedTopMovers)
 		attributes := make(map[string]interface{}, 9)
 		attributes["Position"] = mover.Order
 		attributes["DayCode"] = mover.DayCode
@@ -137,7 +124,7 @@ func CodedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}
 	}
 	result := make([]*map[string]interface{}, 0, len(data))
 	for _, moverInter := range data {
-		mover := (*moverInter).(CodedTopMovers)
+		mover := (*moverInter).(moversdata.CodedTopMovers)
 		attributes := make(map[string]interface{}, 9)
 		attributes["Code"] = mover.Code
 		attributes["DayChange"] = mover.DayChange
@@ -203,7 +190,7 @@ func convertListOfResults(results []*athena.ResultSet, translate func(*athena.Ro
 }
 
 func athenaToTopMovers(row *athena.Row) (interface{}, error) {
-	stockMovement := OrderedTopMovers{}
+	stockMovement := moversdata.OrderedTopMovers{}
 	//Calculate the order
 	if row.Data[0].VarCharValue != nil {
 		order, err := strconv.Atoi(*row.Data[0].VarCharValue)
@@ -248,7 +235,7 @@ func athenaToTopMovers(row *athena.Row) (interface{}, error) {
 }
 
 func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
-	stockMovement := CodedTopMovers{}
+	stockMovement := moversdata.CodedTopMovers{}
 
 	//Get the Code
 	if row.Data[0].VarCharValue != nil {

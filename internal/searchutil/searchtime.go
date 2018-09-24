@@ -2,6 +2,7 @@ package searchutil
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
@@ -42,4 +43,19 @@ func GetSearchWindow(a awsutil.AwsUtiler, tableName string, keyName string, peri
 		duration, _ = strconv.Atoi(timeRes.UTC().Format("20060102"))
 	}
 	return int64(duration), int64(nowDate)
+}
+
+func StringToSearchPeriod(s string) SearchPeriod {
+	switch strings.ToLower(s) {
+	case "day":
+		return Day
+	case "week":
+		return Week
+	case "month":
+		return Month
+	case "year":
+		return Year
+	default:
+		return Week
+	}
 }

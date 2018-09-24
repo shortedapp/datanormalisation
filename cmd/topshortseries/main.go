@@ -59,9 +59,15 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	// - name: number
 	//   in: query
 	//   description: maximum number of results to return
-	//   required: false
+	//   required: true
 	//   type: integer
 	//   format: int32
+	// - name: duration
+	//   in: query
+	//   description: timeframe of the series
+	//   required: true
+	//   type: string
+	//   format: string
 	// responses:
 	//   '200':
 	//     description: Fetch Success
