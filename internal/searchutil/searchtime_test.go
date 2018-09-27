@@ -59,3 +59,21 @@ func TestGetSearchWindow(t *testing.T) {
 		}
 	}
 }
+
+func TestStringToSearchPeriod(t *testing.T) {
+
+	testCases := []struct {
+		period string
+		result SearchPeriod
+	}{
+		{"day", Day},
+		{"week", Week},
+		{"month", Month},
+		{"year", Year},
+		{"asd", Week},
+	}
+
+	for _, test := range testCases {
+		assert.Equal(t, test.result, StringToSearchPeriod(test.period))
+	}
+}

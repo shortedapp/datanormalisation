@@ -1,9 +1,11 @@
 package topmoversquery
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/shortedapp/shortedfunctions/internal/moversdata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 )
@@ -27,18 +29,10 @@ func (t *TopMoversQuery) QueryOrderedTopMovers(tableName string, number int) []*
 
 	result := make([]*moversdata.OrderedTopMovers, 0, number)
 	for _, item := range res {
-		pos, _ := strconv.ParseInt(*item["Position"].N, 10, 64)
-		dayChange, _ := strconv.ParseFloat(*item["DayChange"].N, 64)
-		weekChange, _ := strconv.ParseFloat(*item["WeekChange"].N, 64)
-		monthChange, _ := strconv.ParseFloat(*item["MonthChange"].N, 64)
-		yearChange, _ := strconv.ParseFloat(*item["YearChange"].N, 64)
-		dayCode := *item["DayCode"].S
-		weekCode := *item["WeekCode"].S
-		monthCode := *item["MonthCode"].S
-		yearCode := *item["YearCode"].S
-		result = append(result, &moversdata.OrderedTopMovers{Order: int(pos), DayCode: dayCode, DayChange: dayChange,
-			WeekCode: weekCode, WeekChange: weekChange, MonthCode: monthCode, MonthChange: monthChange,
-			YearCode: yearCode, YearChange: yearChange})
+		mover := moversdata.OrderedTopMovers{}
+		addNumElements(item, &mover)
+		addStringElements(item, &mover)
+		result = append(result, &mover)
 	}
 
 	sort.Slice(result, func(i, j int) bool {
@@ -46,4 +40,54 @@ func (t *TopMoversQuery) QueryOrderedTopMovers(tableName string, number int) []*
 	})
 
 	return result
+}
+
+func addStringElements(item map[string]*dynamodb.AttributeValue, data *moversdata.OrderedTopMovers) error {
+	dayCode, presDay := item["DayCode"]
+	weekCode, presWeek := item["WeekCode"]
+	monthCode, presMonth := item["MonthCode"]
+	yearCode, presYear := item["YearCode"]
+
+	if !presDay || !presWeek ||
+		!presMonth || !presYear {
+		return fmt.Errorf("missing a required key")
+	}
+	data.DayCode = *dayCode.S
+	data.WeekCode = *weekCode.S
+	data.MonthCode = *monthCode.S
+	data.YearCode = *yearCode.S
+
+	return nil
+}
+
+func addNumElements(item map[string]*dynamodb.AttributeValue, data *moversdata.OrderedTopMovers) error {
+	p, presPos := item["Position"]
+	day, presDay := item["DayChange"]
+	week, presWeek := item["WeekChange"]
+	month, presMonth := item["MonthChange"]
+	year, presYear := item["YearChange"]
+
+	if !presPos || !presDay || !presWeek ||
+		!presMonth || !presYear {
+		return fmt.Errorf("missing a required key")
+	}
+
+	pos, errPos := strconv.ParseInt(*p.N, 10, 64)
+	dayChange, errDayChange := strconv.ParseFloat(*day.N, 64)
+	weekChange, errWeekChange := strconv.ParseFloat(*week.N, 64)
+	monthChange, errMonthChange := strconv.ParseFloat(*month.N, 64)
+	yearChange, errYearChange := strconv.ParseFloat(*year.N, 64)
+
+	if errPos != nil || errDayChange != nil || errWeekChange != nil ||
+		errMonthChange != nil || errYearChange != nil {
+		return fmt.Errorf("missing a required key")
+	}
+
+	data.Order = int(pos)
+	data.DayChange = dayChange
+	data.WeekChange = weekChange
+	data.MonthChange = monthChange
+	data.YearChange = yearChange
+
+	return nil
 }

@@ -23,19 +23,19 @@ func (t *Topmoversingestor) IngestMovement(tableName string) {
 
 	//Generate queries and uploads in go routines
 	orderedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, latest.percent-day.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-day.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-day.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."day" on "latest".code = "day".code),
 	weekdata AS
-	(SELECT latest.code, latest.percent-week.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-week.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-week.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."week" on "latest".code = "week".code),
 	monthdata AS
-	(SELECT latest.code, latest.percent-month.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-month.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-month.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."month" on "latest".code = "month".code),
 	yeardata AS
-	(SELECT latest.code, latest.percent-year.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-year.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-year.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."year" on "latest".code = "year".code)
 	SELECT daydata.ordernum, daydata.code, daydata.diff, weekdata.code, weekdata.diff, monthdata.code, monthdata.diff, yeardata.code, yeardata.diff
@@ -47,26 +47,26 @@ func (t *Topmoversingestor) IngestMovement(tableName string) {
 	ORDER BY daydata.ordernum ASC`
 
 	codedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, latest.percent-day.percent as daydiff
+	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as daydiff
 	from "test"."latest"
-	inner join "test"."day" on "latest".code = "day".code),
+	left join "test"."day" on "latest".code = "day".code),
 	weekdata AS
-	(SELECT latest.code, latest.percent-week.percent as weekdiff
+	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as weekdiff
 	from "test"."latest"
-	inner join "test"."week" on "latest".code = "week".code),
+	left join "test"."week" on "latest".code = "week".code),
 	monthdata AS
-	(SELECT latest.code, latest.percent-month.percent as monthdiff
+	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as monthdiff
 	from "test"."latest"
-	inner join "test"."month" on "latest".code = "month".code),
+	left join "test"."month" on "latest".code = "month".code),
 	yeardata AS
-	(SELECT latest.code, latest.percent-year.percent as yeardiff
+	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as yeardiff
 	from "test"."latest"
-	right join "test"."year" on "latest".code = "year".code)
+	left join "test"."year" on "latest".code = "year".code)
 	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
 	FROM daydata
-	right join weekdata on weekdata.code = daydata.code
-	right join monthdata on monthdata.code = daydata.code
-	right join yeardata on yeardata.code = daydata.code`
+	left join weekdata on weekdata.code = daydata.code
+	left join monthdata on monthdata.code = daydata.code
+	left join yeardata on yeardata.code = daydata.code`
 
 	orderedDone := make(chan bool)
 	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper, orderedDone)
