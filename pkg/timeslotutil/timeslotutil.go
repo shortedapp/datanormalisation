@@ -24,3 +24,7 @@ func GetPreviousDate(option int, now time.Time) int {
 	}
 	return duration
 }
+
+func GetPreviousDateMinusDaysString(days int, now time.Time) string {
+	return now.AddDate(0, 0, -days).Format("20060102")
+}

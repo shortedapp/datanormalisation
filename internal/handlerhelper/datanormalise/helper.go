@@ -9,6 +9,7 @@ import (
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	log "github.com/shortedapp/shortedfunctions/pkg/loggingutil"
+	"github.com/shortedapp/shortedfunctions/pkg/timeslotutil"
 )
 
 //Datanormalise - struct to enable testing
@@ -58,7 +59,10 @@ func (d Datanormalise) GetShareCodes(codesReady chan<- map[string]*sharedata.Sha
 //	- clients: a pointer to the pregenerated AWS clients
 //	- shortsReady: a channel to place the goroutine result
 func (d Datanormalise) GetShortPositions(shortsReady chan<- map[string]*sharedata.AsicShortCsv) {
-	resp, err := d.Clients.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/2018/07/RR20180726-001-SSDailyAggShortPos.csv", "test")
+	timeString := timeslotutil.GetPreviousDateMinusDaysString(4, time.Now())
+
+	resp, err := d.Clients.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/"+timeString[0:3]+"/"+
+		timeString[4:6]+"/RR"+timeString+"-001-SSDailyAggShortPos.csv", "test")
 	if resp == nil || err != nil {
 		if err != nil {
 			log.Info("GetShortPositions", err.Error())
