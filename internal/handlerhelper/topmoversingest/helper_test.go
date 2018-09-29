@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/shortedapp/shortedfunctions/internal/moversdata"
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func mockCodedTopMoversAthena(option int) *athena.ResultSet {
 }
 
 func TestOrderedTopMoversMapper(t *testing.T) {
-	realStruct := OrderedTopMovers{Order: 1, DayCode: "tst", DayChange: 0.123, WeekCode: "tst",
+	realStruct := moversdata.OrderedTopMovers{Order: 1, DayCode: "tst", DayChange: 0.123, WeekCode: "tst",
 		WeekChange: 0.123, MonthCode: "tst", MonthChange: 1.5423, YearCode: "tst", YearChange: 3.452}
 	interfaceSlice := make([]*interface{}, 0, 1)
 	realStructInterface := reflect.ValueOf(realStruct).Interface()
@@ -91,7 +92,7 @@ func TestOrderedTopMoversMapper(t *testing.T) {
 }
 
 func TestCodedTopMoversMapper(t *testing.T) {
-	realStruct := CodedTopMovers{Code: "tst", DayChange: 0.123, WeekChange: 0.123, MonthChange: 1.5423, YearChange: 3.452}
+	realStruct := moversdata.CodedTopMovers{Code: "tst", DayChange: 0.123, WeekChange: 0.123, MonthChange: 1.5423, YearChange: 3.452}
 	interfaceSlice := make([]*interface{}, 0, 1)
 	realStructInterface := reflect.ValueOf(realStruct).Interface()
 	interfaceSlice = append(interfaceSlice, &realStructInterface)

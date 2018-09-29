@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/shortedapp/shortedfunctions/internal/moversdata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
 	"github.com/shortedapp/shortedfunctions/pkg/timeslotutil"
 )
@@ -16,47 +17,25 @@ type Topmoversingestor struct {
 	Clients awsutil.AwsUtiler
 }
 
-//OrderedTopMovers
-type OrderedTopMovers struct {
-	Order       int
-	DayCode     string
-	DayChange   float64
-	WeekCode    string
-	WeekChange  float64
-	MonthCode   string
-	MonthChange float64
-	YearCode    string
-	YearChange  float64
-}
-
-//MoversByCode
-type CodedTopMovers struct {
-	Code        string
-	DayChange   float64
-	WeekChange  float64
-	MonthChange float64
-	YearChange  float64
-}
-
 //IngestMovement - Calaculate the movement and store in dynamoDB
 func (t *Topmoversingestor) IngestMovement(tableName string) {
 	t.generateViews()
 
 	//Generate queries and uploads in go routines
 	orderedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, latest.percent-day.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-day.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-day.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."day" on "latest".code = "day".code),
 	weekdata AS
-	(SELECT latest.code, latest.percent-week.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-week.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-week.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."week" on "latest".code = "week".code),
 	monthdata AS
-	(SELECT latest.code, latest.percent-month.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-month.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-month.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."month" on "latest".code = "month".code),
 	yeardata AS
-	(SELECT latest.code, latest.percent-year.percent as diff, ROW_NUMBER() OVER (ORDER BY latest.percent-year.percent) as ordernum
+	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-year.percent)) as ordernum
 	from "test"."latest"
 	left join "test"."year" on "latest".code = "year".code)
 	SELECT daydata.ordernum, daydata.code, daydata.diff, weekdata.code, weekdata.diff, monthdata.code, monthdata.diff, yeardata.code, yeardata.diff
@@ -68,35 +47,43 @@ func (t *Topmoversingestor) IngestMovement(tableName string) {
 	ORDER BY daydata.ordernum ASC`
 
 	codedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, latest.percent-day.percent as daydiff
+	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as daydiff
 	from "test"."latest"
-	inner join "test"."day" on "latest".code = "day".code),
+	left join "test"."day" on "latest".code = "day".code),
 	weekdata AS
-	(SELECT latest.code, latest.percent-week.percent as weekdiff
+	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as weekdiff
 	from "test"."latest"
-	inner join "test"."week" on "latest".code = "week".code),
+	left join "test"."week" on "latest".code = "week".code),
 	monthdata AS
-	(SELECT latest.code, latest.percent-month.percent as monthdiff
+	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as monthdiff
 	from "test"."latest"
-	inner join "test"."month" on "latest".code = "month".code),
+	left join "test"."month" on "latest".code = "month".code),
 	yeardata AS
-	(SELECT latest.code, latest.percent-year.percent as yeardiff
+	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as yeardiff
 	from "test"."latest"
-	inner join "test"."year" on "latest".code = "year".code)
+	left join "test"."year" on "latest".code = "year".code)
 	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
 	FROM daydata
 	left join weekdata on weekdata.code = daydata.code
 	left join monthdata on monthdata.code = daydata.code
 	left join yeardata on yeardata.code = daydata.code`
 
-	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper)
-	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper)
+	orderedDone := make(chan bool)
+	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper, orderedDone)
+
+	codedDone := make(chan bool)
+	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper, codedDone)
+	<-orderedDone
+	<-codedDone
+
+	//TODO add code to drop stale entries
 }
 
 func (t *Topmoversingestor) queryAndUploadToDynamoDB(query string, athenaTable string, dynamoTable string,
-	athenaFn func(*athena.Row) (interface{}, error), dynamoFn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
+	athenaFn func(*athena.Row) (interface{}, error), dynamoFn func(resp interface{}, date int) ([]*map[string]interface{}, error), done chan bool) {
 	result := t.generateQueryResults(query, athenaTable, athenaFn)
 	t.uploadToDynamoDB(dynamoTable, result, dynamoFn)
+	done <- true
 }
 
 func (t *Topmoversingestor) uploadToDynamoDB(table string, data interface{}, fn func(resp interface{}, date int) ([]*map[string]interface{}, error)) {
@@ -112,7 +99,7 @@ func OrderedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface
 	}
 	result := make([]*map[string]interface{}, 0, len(data))
 	for _, moverInter := range data {
-		mover := (*moverInter).(OrderedTopMovers)
+		mover := (*moverInter).(moversdata.OrderedTopMovers)
 		attributes := make(map[string]interface{}, 9)
 		attributes["Position"] = mover.Order
 		attributes["DayCode"] = mover.DayCode
@@ -137,7 +124,7 @@ func CodedTopMoversMapper(resp interface{}, date int) ([]*map[string]interface{}
 	}
 	result := make([]*map[string]interface{}, 0, len(data))
 	for _, moverInter := range data {
-		mover := (*moverInter).(CodedTopMovers)
+		mover := (*moverInter).(moversdata.CodedTopMovers)
 		attributes := make(map[string]interface{}, 9)
 		attributes["Code"] = mover.Code
 		attributes["DayChange"] = mover.DayChange
@@ -203,7 +190,7 @@ func convertListOfResults(results []*athena.ResultSet, translate func(*athena.Ro
 }
 
 func athenaToTopMovers(row *athena.Row) (interface{}, error) {
-	stockMovement := OrderedTopMovers{}
+	stockMovement := moversdata.OrderedTopMovers{}
 	//Calculate the order
 	if row.Data[0].VarCharValue != nil {
 		order, err := strconv.Atoi(*row.Data[0].VarCharValue)
@@ -248,7 +235,7 @@ func athenaToTopMovers(row *athena.Row) (interface{}, error) {
 }
 
 func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
-	stockMovement := CodedTopMovers{}
+	stockMovement := moversdata.CodedTopMovers{}
 
 	//Get the Code
 	if row.Data[0].VarCharValue != nil {

@@ -41,6 +41,7 @@ type AwsUtiler interface {
 	BatchGetItemsDynamoDB(string, string, []interface{}) ([]map[string]*dynamodb.AttributeValue, error)
 	TimeRangeQueryDynamoDB(*DynamoDBRangeQuery) ([]map[string]*dynamodb.AttributeValue, error)
 	GetItemByPartAndSortDynamoDB(*DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
+	GetItemByPartDynamoDB(query *DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error)
 	SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error)
 	WriteToDynamoDB(tableName string, data interface{},
 		mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error
@@ -402,6 +403,28 @@ func (client *ClientsStruct) UpdateDynamoDBTableCapacity(tableName string, readC
 	return nil
 }
 
+// GetItemByPartDynamoDB - get a specific item from DynamoDB
+// inputs:
+//	- query: DynamoDBItemQuery
+func (client *ClientsStruct) GetItemByPartDynamoDB(query *DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error) {
+
+	//Make the request
+	res, err := client.dynamoClient.GetItem(&dynamodb.GetItemInput{
+		TableName: &query.TableName,
+		Key: map[string]*dynamodb.AttributeValue{
+			query.PartitionKey: &dynamodb.AttributeValue{S: &query.PartitionName},
+		},
+	})
+
+	if err != nil {
+		log.Info("GetItemByPartDynamoDB", err.Error())
+		return nil, err
+	}
+
+	//Return the result
+	return res.Item, nil
+}
+
 // GetItemByPartAndSortDynamoDB - get a specific item from DynamoDB
 // inputs:
 //	- query: DynamoDBItemQuery (assumes number sort key for now)
@@ -551,15 +574,12 @@ func exponentialBackoffTimer(failure float64, timeSlot float64) *time.Timer {
 func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
 	mapper func(resp interface{}, date int) ([]*map[string]interface{}, error), date int) error {
 
-	log.Error("WriteToDynamoDB", "step 1")
 	//map data into an interface
 	dataMapped, err := mapper(data, date)
-	log.Error("WriteToDynamoDB", "step 2")
 	if err != nil {
 		log.Error("WriteToDynamoDB", "unable to cast data")
 		return err
 	}
-	log.Error("WriteToDynamoDB", "step 3")
 	//Update table capacity units
 	_, writeThroughput := updateDynamoWriteUnits(client, tableName, 25)
 
