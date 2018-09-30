@@ -22,59 +22,59 @@ func (t *Topmoversingestor) IngestMovement(tableName string) {
 	t.generateViews()
 
 	//Generate queries and uploads in go routines
-	orderedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-day.percent)) as ordernum
-	from "test"."latest"
-	left join "test"."day" on "latest".code = "day".code),
-	weekdata AS
-	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-week.percent)) as ordernum
-	from "test"."latest"
-	left join "test"."week" on "latest".code = "week".code),
-	monthdata AS
-	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-month.percent)) as ordernum
-	from "test"."latest"
-	left join "test"."month" on "latest".code = "month".code),
-	yeardata AS
-	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-year.percent)) as ordernum
-	from "test"."latest"
-	left join "test"."year" on "latest".code = "year".code)
-	SELECT daydata.ordernum, daydata.code, daydata.diff, weekdata.code, weekdata.diff, monthdata.code, monthdata.diff, yeardata.code, yeardata.diff
-	FROM daydata
-	left join weekdata on weekdata.ordernum = daydata.ordernum
-	left join monthdata on monthdata.ordernum = daydata.ordernum
-	left join yeardata on yeardata.ordernum = daydata.ordernum
-	WHERE daydata.ordernum < 100
-	ORDER BY daydata.ordernum ASC`
+	// orderedTopMoversQuery := `WITH daydata AS
+	// (SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-day.percent)) as ordernum
+	// from "test"."latest"
+	// left join "test"."day" on "latest".code = "day".code),
+	// weekdata AS
+	// (SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-week.percent)) as ordernum
+	// from "test"."latest"
+	// left join "test"."week" on "latest".code = "week".code),
+	// monthdata AS
+	// (SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-month.percent)) as ordernum
+	// from "test"."latest"
+	// left join "test"."month" on "latest".code = "month".code),
+	// yeardata AS
+	// (SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-year.percent)) as ordernum
+	// from "test"."latest"
+	// left join "test"."year" on "latest".code = "year".code)
+	// SELECT daydata.ordernum, daydata.code, daydata.diff, weekdata.code, weekdata.diff, monthdata.code, monthdata.diff, yeardata.code, yeardata.diff
+	// FROM daydata
+	// left join weekdata on weekdata.ordernum = daydata.ordernum
+	// left join monthdata on monthdata.ordernum = daydata.ordernum
+	// left join yeardata on yeardata.ordernum = daydata.ordernum
+	// WHERE daydata.ordernum < 100
+	// ORDER BY daydata.ordernum ASC`
 
-	codedTopMoversQuery := `WITH daydata AS
-	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as daydiff
-	from "test"."latest"
-	left join "test"."day" on "latest".code = "day".code),
-	weekdata AS
-	(SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as weekdiff
-	from "test"."latest"
-	left join "test"."week" on "latest".code = "week".code),
-	monthdata AS
-	(SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as monthdiff
-	from "test"."latest"
-	left join "test"."month" on "latest".code = "month".code),
-	yeardata AS
-	(SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as yeardiff
-	from "test"."latest"
-	left join "test"."year" on "latest".code = "year".code)
-	SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
-	FROM daydata
-	left join weekdata on weekdata.code = daydata.code
-	left join monthdata on monthdata.code = daydata.code
-	left join yeardata on yeardata.code = daydata.code`
+	// codedTopMoversQuery := `WITH daydata AS
+	// (SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as daydiff
+	// from "test"."latest"
+	// left join "test"."day" on "latest".code = "day".code),
+	// weekdata AS
+	// (SELECT latest.code, COALESCE(latest.percent-week.percent,-99999999) as weekdiff
+	// from "test"."latest"
+	// left join "test"."week" on "latest".code = "week".code),
+	// monthdata AS
+	// (SELECT latest.code, COALESCE(latest.percent-month.percent,-99999999) as monthdiff
+	// from "test"."latest"
+	// left join "test"."month" on "latest".code = "month".code),
+	// yeardata AS
+	// (SELECT latest.code, COALESCE(latest.percent-year.percent,-99999999) as yeardiff
+	// from "test"."latest"
+	// left join "test"."year" on "latest".code = "year".code)
+	// SELECT daydata.code, daydata.daydiff, weekdata.weekdiff, monthdata.monthdiff, yeardata.yeardiff
+	// FROM daydata
+	// left join weekdata on weekdata.code = daydata.code
+	// left join monthdata on monthdata.code = daydata.code
+	// left join yeardata on yeardata.code = daydata.code`
 
-	orderedDone := make(chan bool)
-	go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper, orderedDone)
+	// orderedDone := make(chan bool)
+	// go t.queryAndUploadToDynamoDB(orderedTopMoversQuery, "test", "OrderedTopMovers", athenaToTopMovers, OrderedTopMoversMapper, orderedDone)
 
-	codedDone := make(chan bool)
-	go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper, codedDone)
-	<-orderedDone
-	<-codedDone
+	// codedDone := make(chan bool)
+	// go t.queryAndUploadToDynamoDB(codedTopMoversQuery, "test", "CodedTopMovers", athenaToTopMovers, CodedTopMoversMapper, codedDone)
+	// <-orderedDone
+	// <-codedDone
 
 	//TODO add code to drop stale entries
 }
@@ -269,9 +269,12 @@ func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
 func (t *Topmoversingestor) generateViews() {
 	timeSlots := make([]int, 0, 4)
 	names := []string{"year", "month", "week", "day", "latest"}
-	now := time.Now()
+	//back date at least 4 days (ensure it is on a week day first)
+	now := timeslotutil.BackDateToWeekday(time.Now())
+	now = now.AddDate(0, 0, -4)
 	for i := 0; i <= 4; i++ {
-		timeSlots = append(timeSlots, timeslotutil.GetPreviousDate(i, now))
+		//Ensure the timeslot lands on a weekdayn with data
+		timeSlots = append(timeSlots, timeslotutil.GetPreviousWeekdayDate(i, now))
 	}
 
 	for i, timeVal := range timeSlots {

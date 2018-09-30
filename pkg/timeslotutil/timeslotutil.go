@@ -25,6 +25,54 @@ func GetPreviousDate(option int, now time.Time) int {
 	return duration
 }
 
+func GetPreviousWeekdayDate(option int, now time.Time) int {
+	var duration int
+	switch option {
+	case 0:
+		now = now.AddDate(-1, 0, 0)
+		now = BackDateToWeekday(now)
+		duration, _ = strconv.Atoi(now.Format("20060102"))
+	case 1:
+		now = now.AddDate(0, -1, 0)
+		now = BackDateToWeekday(now)
+		duration, _ = strconv.Atoi(now.Format("20060102"))
+	case 2:
+		now = now.AddDate(0, 0, -7)
+		now = BackDateToWeekday(now)
+		duration, _ = strconv.Atoi(now.Format("20060102"))
+	case 3:
+		now = now.AddDate(0, 0, -1)
+		now = BackDateToWeekday(now)
+		duration, _ = strconv.Atoi(now.Format("20060102"))
+	case 4:
+		now = BackDateToWeekday(now)
+		duration, _ = strconv.Atoi(now.Format("20060102"))
+	}
+	return duration
+}
+
+func BackDateToWeekday(t time.Time) time.Time {
+	dayOfWeek := t.Weekday()
+	if dayOfWeek == time.Saturday {
+		return t.AddDate(0, 0, -1)
+	} else if dayOfWeek == time.Sunday {
+		return t.AddDate(0, 0, -2)
+	}
+	return t
+
+}
 func GetPreviousDateMinusDaysString(days int, now time.Time) string {
 	return now.AddDate(0, 0, -days).Format("20060102")
+}
+
+func GetPreviousDateMinusMonthsString(months int, now time.Time) string {
+	return now.AddDate(0, -months, 0).Format("20060102")
+}
+
+func GetPreviousDateMinusYearsString(years int, now time.Time) string {
+	return now.AddDate(-years, 0, 0).Format("20060102")
+}
+
+func GetDatePlusDaysString(days int, date time.Time) string {
+	return date.AddDate(0, 0, days).Format("20060102")
 }
