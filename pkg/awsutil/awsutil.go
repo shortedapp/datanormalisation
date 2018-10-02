@@ -101,9 +101,10 @@ func GenerateAWSClients(clients ...string) *ClientsStruct {
 //	url: url for the request
 //	item: dynamoDB item to be updated
 func (client *ClientsStruct) WithDynamoDBGetLatest(url string, key string) (*http.Response, error) {
+	fmt.Println(url)
 	resp, err := http.Head(url)
 	if err != nil {
-		log.Info("WithDynamoDBGetLatest", "unable to get information from target url")
+		log.Info("WithDynamoDBGetLatest", "unable to get information from target url: "+url)
 		return nil, err
 	}
 

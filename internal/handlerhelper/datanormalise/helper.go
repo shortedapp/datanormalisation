@@ -59,9 +59,9 @@ func (d Datanormalise) GetShareCodes(codesReady chan<- map[string]*sharedata.Sha
 //	- clients: a pointer to the pregenerated AWS clients
 //	- shortsReady: a channel to place the goroutine result
 func (d Datanormalise) GetShortPositions(shortsReady chan<- map[string]*sharedata.AsicShortCsv) {
-	timeString := timeslotutil.GetPreviousDateMinusDaysString(4, time.Now())
+	timeString := timeslotutil.GetPreviousDateMinusBusinessDaysString(time.Now(), 4)
 
-	resp, err := d.Clients.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/"+timeString[0:3]+"/"+
+	resp, err := d.Clients.WithDynamoDBGetLatest("https://asic.gov.au/Reports/Daily/"+timeString[0:4]+"/"+
 		timeString[4:6]+"/RR"+timeString+"-001-SSDailyAggShortPos.csv", "test")
 	if resp == nil || err != nil {
 		if err != nil {
@@ -137,7 +137,7 @@ func (d Datanormalise) UploadData(data []*sharedata.CombinedShortJSON) {
 	}
 
 	currentTime := time.Now()
-	currentDay := currentTime.Format("20060102")
+	currentDay := timeslotutil.GetPreviousDateMinusBusinessDaysString(currentTime, 4)
 
 	//Push to S3
 	err = d.Clients.PutFileToS3("shortedappjmk", "testShortedData/"+currentDay+".json", shortDataBytes)

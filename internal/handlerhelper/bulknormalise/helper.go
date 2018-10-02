@@ -28,14 +28,16 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 	}
 
 	//Get Short positions
-	tNow := time.Now().AddDate(0, -previousMonth, 0)
-	latestDate := timeslotutil.GetPreviousDateMinusDaysString(4, tNow)
+	tNow := timeslotutil.BackDateBusinessDays(time.Now(), 4)
+	latestDate := timeslotutil.GetPreviousDateMinusMonthsString(-previousMonth, tNow)
 
 	tStart := tNow.AddDate(0, -(previousMonth + 1), 0)
 	dateString := timeslotutil.GetPreviousDateMinusMonthsString((previousMonth + 1), tNow)
 	i := 1
 	for dateString != latestDate {
-		go b.MergeAndUploadShorts(codes, dateString)
+		//Can't do a gp routine or connections will be throttled
+		b.MergeAndUploadShorts(codes, dateString)
+		time.Sleep(time.Second)
 		fmt.Println(dateString)
 		dateString = timeslotutil.GetDatePlusDaysString(i, tStart)
 		i++
@@ -81,7 +83,7 @@ func (b Bulknormalise) GetShareCodes() map[string]*sharedata.ShareCsv {
 //	- shortsReady: a channel to place the goroutine result
 func (b Bulknormalise) GetShortPositions(timeString string) map[string]*sharedata.AsicShortCsv {
 
-	resp, err := http.Get("https://asic.gov.au/Reports/Daily/" + timeString[0:3] + "/" +
+	resp, err := http.Get("https://asic.gov.au/Reports/Daily/" + timeString[0:4] + "/" +
 		timeString[4:6] + "/RR" + timeString + "-001-SSDailyAggShortPos.csv")
 	if resp == nil || err != nil {
 		if err != nil {
