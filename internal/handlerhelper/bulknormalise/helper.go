@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
@@ -21,6 +22,13 @@ type Bulknormalise struct {
 
 //NormaliseRoutine - Runs a routine to generate the short data and upload to s3
 func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
+
+	resp, err := b.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "name_id", PartitionKey: "latestDate"})
+	if err != nil {
+		//TODO determine what to do with error logic here
+	}
+	latestDynamoDate := *resp["date"].S
+
 	//Get Share Codes
 	codes := b.GetShareCodes()
 	if codes == nil {
@@ -33,30 +41,47 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 
 	tStart := tNow.AddDate(0, -(previousMonth + 1), 0)
 	dateString := timeslotutil.GetPreviousDateMinusMonthsString((previousMonth + 1), tNow)
+	var maxDate string
 	i := 1
 	for dateString != latestDate {
 		//Can't do a gp routine or connections will be throttled
-		b.MergeAndUploadShorts(codes, dateString)
+		result := b.MergeAndUploadShorts(codes, dateString)
 		time.Sleep(time.Second)
-		fmt.Println(dateString)
 		dateString = timeslotutil.GetDatePlusDaysString(i, tStart)
+
+		//Track the most current file uploaded
+		if result {
+			maxDate = dateString
+		}
 		i++
+	}
+
+	//TODO add error handling for atoi here
+	latestDynamoInt, _ := strconv.Atoi(latestDynamoDate)
+	maxDateInt, _ := strconv.Atoi(maxDate)
+
+	if latestDynamoInt < maxDateInt {
+		b.Clients.PutDynamoDBLastModified("lastUpdate", "latestDate", maxDate)
 	}
 
 }
 
-func (b Bulknormalise) MergeAndUploadShorts(codes map[string]*sharedata.ShareCsv, dateString string) {
+func (b Bulknormalise) MergeAndUploadShorts(codes map[string]*sharedata.ShareCsv, dateString string) bool {
 	shorts := b.GetShortPositions(dateString)
 	if shorts == nil {
 		log.Info("Could not get shorts for: ", dateString)
-		return
+		return false
 	}
 	//Merge two data sets
 	mergeShortData := b.MergeShortData(shorts, codes)
 	if mergeShortData != nil {
 		//Upload JSON document
-		b.UploadData(mergeShortData, dateString)
+		err := b.UploadData(mergeShortData, dateString)
+		if err == nil {
+			return true
+		}
 	}
+	return false
 }
 
 //GetShareCodes - Get Short position data from ASIC
@@ -145,7 +170,7 @@ func (b Bulknormalise) MergeShortData(shorts map[string]*sharedata.AsicShortCsv,
 }
 
 //UploadData - Marshal Object to JSON and Push to S3
-func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateString string) {
+func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateString string) error {
 	//add result key
 	result := sharedata.CombinedResultJSON{Result: data}
 
@@ -154,12 +179,14 @@ func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateStrin
 
 	if err != nil {
 		log.Info("UploadData", "unable to marshal short data into JSON")
-		return
+		return fmt.Errorf("unable to marshal data for date: " + dateString)
 	}
 
 	//Push to S3
 	err = b.Clients.PutFileToS3("shortedappjmk", "testShortedData/"+dateString+".json", shortDataBytes)
 	if err != nil {
 		log.Info("UploadData", "unable to upload to S3 for date: "+dateString)
+		return fmt.Errorf("unable to upload to S3 for date: " + dateString)
 	}
+	return nil
 }
