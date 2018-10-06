@@ -269,8 +269,16 @@ func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
 func (t *Topmoversingestor) generateViews() {
 	timeSlots := make([]int, 0, 4)
 	names := []string{"year", "month", "week", "day", "latest"}
-	//back date at least 4 days (ensure it is on a week day first)
-	now := timeslotutil.BackDateBusinessDays(time.Now(), 4)
+
+	//Get the last ingested data
+	resp, err := t.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
+	if err != nil {
+		fmt.Println(err.Error())
+		//TODO determine what to do with error logic here
+	}
+	fmt.Println(resp)
+	latestDate := *resp["date"].S
+	now, err := time.Parse("20060102", latestDate)
 	for i := 0; i <= 4; i++ {
 		//Ensure the timeslot lands on a weekdayn with data
 		timeSlots = append(timeSlots, timeslotutil.GetPreviousWeekdayDate(i, now))

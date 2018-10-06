@@ -31,7 +31,7 @@ func Handler(request events.SNSEvent) {
 func main() {
 	log.SetAppName("ShortedApp")
 	recordSlice := make([]events.SNSEventRecord, 0, 1)
-	recordSlice = append(recordSlice, events.SNSEventRecord{SNS: events.SNSEntity{Message: "0"}})
+	recordSlice = append(recordSlice, events.SNSEventRecord{SNS: events.SNSEntity{Message: "1"}})
 	Handler(events.SNSEvent{Records: recordSlice})
 	lambda.Start(Handler)
 }

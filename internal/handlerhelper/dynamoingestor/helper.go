@@ -31,6 +31,9 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) error {
 		return err
 	}
 
+	//update the current latest date
+	//TODO add some resilence here
+	d.Clients.PutDynamoDBLastModified("lastUpdate", "latestDate", currentDay)
 	return d.Clients.WriteToDynamoDB(tableName, resp, CombinedShortJSONMapper, timeVal)
 }
 

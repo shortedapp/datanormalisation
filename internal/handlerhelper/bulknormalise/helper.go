@@ -23,7 +23,7 @@ type Bulknormalise struct {
 //NormaliseRoutine - Runs a routine to generate the short data and upload to s3
 func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 
-	resp, err := b.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "name_id", PartitionKey: "latestDate"})
+	resp, err := b.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
 	if err != nil {
 		//TODO determine what to do with error logic here
 	}
@@ -173,7 +173,7 @@ func (b Bulknormalise) MergeShortData(shorts map[string]*sharedata.AsicShortCsv,
 func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateString string) error {
 	//add result key
 	result := sharedata.CombinedResultJSON{Result: data}
-
+	log.Debug("UploadData", "uploading data...")
 	//Marshal the data into JSON
 	shortDataBytes, err := json.Marshal(result)
 

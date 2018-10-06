@@ -56,9 +56,9 @@ func BackDateBusinessDays(t time.Time, days int) time.Time {
 
 	for days > 0 {
 		if t.Weekday() == 0 || t.Weekday() == 6 {
-			t.AddDate(0, 0, -1)
+			t = t.AddDate(0, 0, -1)
 		} else {
-			t.AddDate(0, 0, -1)
+			t = t.AddDate(0, 0, -1)
 			days--
 		}
 	}
