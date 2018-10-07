@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/shortedapp/shortedfunctions/internal/moversdata"
 	"github.com/shortedapp/shortedfunctions/internal/sharedata"
 	"github.com/shortedapp/shortedfunctions/pkg/awsutil"
@@ -29,6 +30,13 @@ func (m mockAwsUtilClients) FetchJSONFileFromS3(bucket string, key string, f fun
 
 func (m mockAwsUtilClients) SendAthenaQuery(query string, database string) ([]*athena.ResultSet, error) {
 	return nil, nil
+}
+
+func (m mockAwsUtilClients) GetItemByPartDynamoDB(*awsutil.DynamoDBItemQuery) (map[string]*dynamodb.AttributeValue, error) {
+	mapMock := make(map[string]*dynamodb.AttributeValue)
+	fakeDate := "20180901"
+	mapMock["date"] = &dynamodb.AttributeValue{S: &fakeDate}
+	return mapMock, nil
 }
 
 func mockOrderedTopMoversAthena(option int) *athena.ResultSet {

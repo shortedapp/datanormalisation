@@ -26,6 +26,7 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 	resp, err := b.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
 	if err != nil {
 		//TODO determine what to do with error logic here
+		return
 	}
 	latestDynamoDate := *resp["date"].S
 

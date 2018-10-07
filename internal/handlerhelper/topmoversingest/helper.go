@@ -273,10 +273,8 @@ func (t *Topmoversingestor) generateViews() {
 	//Get the last ingested data
 	resp, err := t.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
 	if err != nil {
-		fmt.Println(err.Error())
 		//TODO determine what to do with error logic here
 	}
-	fmt.Println(resp)
 	latestDate := *resp["date"].S
 	now, err := time.Parse("20060102", latestDate)
 	for i := 0; i <= 4; i++ {
