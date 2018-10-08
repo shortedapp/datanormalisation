@@ -174,15 +174,14 @@ func (b Bulknormalise) MergeShortData(shorts map[string]*sharedata.AsicShortCsv,
 func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateString string) error {
 	//add result key
 	result := sharedata.CombinedResultJSON{Result: data}
+	fmt.Println(result)
 	log.Debug("UploadData", "uploading data...")
 	//Marshal the data into JSON
 	shortDataBytes, err := json.Marshal(result)
-
 	if err != nil {
 		log.Info("UploadData", "unable to marshal short data into JSON")
 		return fmt.Errorf("unable to marshal data for date: " + dateString)
 	}
-
 	//Push to S3
 	err = b.Clients.PutFileToS3("shortedappjmk", "testShortedData/"+dateString+".json", shortDataBytes)
 	if err != nil {
