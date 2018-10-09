@@ -1,8 +1,10 @@
 package bulknormalise
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -14,6 +16,28 @@ import (
 type mockAwsUtilClients struct {
 	TestOption int
 	awsutil.AwsUtiler
+}
+
+type testHttp struct {
+	testOption int
+}
+
+func (t testHttp) RoundTrip(request *http.Request) (*http.Response, error) {
+	//Test  WithDynamoDBGetLatest valid head last modified time
+	if t.testOption == 0 {
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+		}, nil
+		//Test  WithDynamoDBGetLatest invalid head last modified time
+	} else if t.testOption == 1 {
+		resp := &http.Response{}
+		file, _ := ioutil.ReadFile("../test/data/mainasicshorttest.csv")
+		resp.Body = ioutil.NopCloser(bytes.NewReader(file))
+		resp.ContentLength = -1
+		return resp, nil
+	}
+	return nil, fmt.Errorf("could not reach url")
 }
 
 func (m mockAwsUtilClients) FetchJSONFileFromS3(bucket string, key string, f func([]byte) (interface{}, error)) (interface{}, error) {
@@ -72,7 +96,6 @@ func TestGetShareCodes(t *testing.T) {
 		b := Bulknormalise{Clients: client}
 		output := b.GetShareCodes()
 		for _, val := range output {
-			fmt.Println(*val)
 			assert.Equal(t, test.val.Name, val.Name)
 		}
 	}
@@ -96,3 +119,44 @@ func TestUploadData(t *testing.T) {
 		assert.Equal(t, test.err, result == nil)
 	}
 }
+
+func TestGetShortPositions(t *testing.T) {
+	savedClient := http.DefaultClient
+	client := mockAwsUtilClients{}
+	b := Bulknormalise{Clients: client}
+	testCases := []struct {
+		testOption int
+		isNil      bool
+	}{
+		{1, false},
+		{2, true},
+	}
+	for _, test := range testCases {
+		http.DefaultClient = &http.Client{
+			Transport: testHttp{testOption: test.testOption},
+		}
+		result := b.GetShortPositions("20180109")
+		assert.Equal(t, test.isNil, result == nil)
+	}
+
+	http.DefaultClient = savedClient
+}
+
+// func TestMergeAndUploadShorts(t *testing.T) {
+
+// 	testCases := []struct {
+// 		testOption int
+// 		data       []*sharedata.CombinedShortJSON
+// 		err        bool
+// 	}{
+// 		{0, []*sharedata.CombinedShortJSON{{Name: "test", Code: "TST", Industry: "TEST"}}, false},
+// 		{1, []*sharedata.CombinedShortJSON{{Name: "test", Code: "TST", Industry: "TEST"}}, true},
+// 		{0, nil, false},
+// 	}
+// 	for _, test := range testCases {
+// 		client := mockAwsUtilClients{TestOption: test.testOption}
+// 		b := Bulknormalise{Clients: client}
+// 		result := b.UploadData(test.data, "20180901")
+// 		assert.Equal(t, test.err, result == nil)
+// 	}
+// }

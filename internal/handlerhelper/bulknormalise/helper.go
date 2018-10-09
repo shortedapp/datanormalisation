@@ -127,6 +127,7 @@ func (b Bulknormalise) GetShortPositions(timeString string) map[string]*sharedat
 
 	bData = bytes.Replace(bData, []byte("\x00"), []byte(""), -1)
 	asicShorts, err := sharedata.UnmarshalAsicShortsCSV(bData)
+
 	resultMap := make(map[string]*sharedata.AsicShortCsv)
 	for _, short := range asicShorts {
 		resultMap[short.Code] = short
@@ -137,10 +138,10 @@ func (b Bulknormalise) GetShortPositions(timeString string) map[string]*sharedat
 
 //MergeShortData - Merges data from ASIC and ASX
 // inputs:
-//	- shortsReady: channel to signal shorts data has been retrieved and processed
-//	- codesReady: channel to signal codes data has been retrieved and processed
+//	- shorts: slice of shorts
+//	- codes: slice of codes
 // Output:
-//	- Array of CombinedShortJSON pointers
+//	- Slice of CombinedShortJSON pointers
 func (b Bulknormalise) MergeShortData(shorts map[string]*sharedata.AsicShortCsv, codes map[string]*sharedata.ShareCsv) []*sharedata.CombinedShortJSON {
 
 	if shorts == nil {
@@ -174,7 +175,6 @@ func (b Bulknormalise) MergeShortData(shorts map[string]*sharedata.AsicShortCsv,
 func (b Bulknormalise) UploadData(data []*sharedata.CombinedShortJSON, dateString string) error {
 	//add result key
 	result := sharedata.CombinedResultJSON{Result: data}
-	fmt.Println(result)
 	log.Debug("UploadData", "uploading data...")
 	//Marshal the data into JSON
 	shortDataBytes, err := json.Marshal(result)
