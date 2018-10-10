@@ -24,8 +24,8 @@ func Handler(request events.SNSEvent) {
 		return
 	}
 
-	//Run the normalise routine
-	b.NormaliseRoutine(month)
+	//Run the normalise routine with 1 second delays between days
+	b.NormaliseRoutine(month, 1000)
 }
 
 func main() {

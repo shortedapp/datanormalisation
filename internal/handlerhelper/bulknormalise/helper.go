@@ -21,11 +21,11 @@ type Bulknormalise struct {
 }
 
 //NormaliseRoutine - Runs a routine to generate the short data and upload to s3
-func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
+func (b Bulknormalise) NormaliseRoutine(previousMonth int, delay int) {
 
 	resp, err := b.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
 	if err != nil {
-		//TODO determine what to do with error logic here
+		log.Warn("NormaliseRoutine", "Unable to get last updated data, aborting")
 		return
 	}
 	latestDynamoDate := *resp["date"].S
@@ -33,7 +33,8 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 	//Get Share Codes
 	codes := b.GetShareCodes()
 	if codes == nil {
-		panic("unable to get codes")
+		log.Warn("NormaliseRoutine", "Unable to get last ASX codes, aborting")
+		return
 	}
 
 	//Get Short positions
@@ -47,7 +48,7 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 	for dateString != latestDate {
 		//Can't do a gp routine or connections will be throttled
 		result := b.MergeAndUploadShorts(codes, dateString)
-		time.Sleep(time.Second)
+		time.Sleep(time.Duration(delay) * time.Millisecond)
 		dateString = timeslotutil.GetDatePlusDaysString(i, tStart)
 
 		//Track the most current file uploaded
@@ -64,7 +65,7 @@ func (b Bulknormalise) NormaliseRoutine(previousMonth int) {
 	if latestDynamoInt < maxDateInt {
 		b.Clients.PutDynamoDBLastModified("lastUpdate", "latestDate", maxDate)
 	}
-
+	log.Debug("NormaliseRoutine", "finishing routine")
 }
 
 func (b Bulknormalise) MergeAndUploadShorts(codes map[string]*sharedata.ShareCsv, dateString string) bool {
