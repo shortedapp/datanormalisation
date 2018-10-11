@@ -52,7 +52,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	//     schema:
 	//       type: array
 	//       items:
-	//         "$ref": "#/definitions/TopShortJSON"
+	//         "$ref": "#/definitions/OrderedTopMovers"
 	//   '400':
 	//     description: result
 	//     type: string

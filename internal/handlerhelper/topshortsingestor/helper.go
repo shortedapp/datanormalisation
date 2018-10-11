@@ -18,7 +18,7 @@ type Topshortsingestor struct {
 //IngestTopShorted - Reads the latest
 func (t *Topshortsingestor) IngestTopShorted(tableName string) error {
 
-	currentTime := time.Now()
+	currentTime := time.Now().AddDate(0, 0, -4)
 	currentDay := currentTime.Format("20060102")
 	resp, err := t.Clients.FetchJSONFileFromS3("shortedappjmk", "testShortedData/"+currentDay+".json", sharedata.UnmarshalCombinedResultJSON)
 	if err != nil {

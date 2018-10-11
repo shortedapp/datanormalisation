@@ -30,6 +30,10 @@ func (m mockAwsUtilClients) WriteToDynamoDB(tableName string, data interface{},
 	return nil
 }
 
+func (m mockAwsUtilClients) PutDynamoDBLastModified(string, string, string) error {
+	return nil
+}
+
 func TestCombinedShortJSONMapper(t *testing.T) {
 	testCases := []struct {
 		input interface{}

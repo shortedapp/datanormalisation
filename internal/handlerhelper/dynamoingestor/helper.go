@@ -18,7 +18,7 @@ type Dynamoingestor struct {
 
 // IngestRoutine - function to ingest data into DynamoDB
 func (d *Dynamoingestor) IngestRoutine(tableName string) error {
-	currentTime := time.Now()
+	currentTime := time.Now().AddDate(0, 0, -4)
 	currentDay := currentTime.Format("20060102")
 	timeVal, err := strconv.Atoi(currentDay)
 	if err != nil {
@@ -31,6 +31,9 @@ func (d *Dynamoingestor) IngestRoutine(tableName string) error {
 		return err
 	}
 
+	//update the current latest date
+	//TODO add some resilence here
+	d.Clients.PutDynamoDBLastModified("lastUpdate", "latestDate", currentDay)
 	return d.Clients.WriteToDynamoDB(tableName, resp, CombinedShortJSONMapper, timeVal)
 }
 

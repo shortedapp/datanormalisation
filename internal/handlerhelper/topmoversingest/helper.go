@@ -21,7 +21,7 @@ type Topmoversingestor struct {
 func (t *Topmoversingestor) IngestMovement(tableName string) {
 	t.generateViews()
 
-	//Generate queries and uploads in go routines
+	// Generate queries and uploads in go routines
 	orderedTopMoversQuery := `WITH daydata AS
 	(SELECT latest.code, COALESCE(latest.percent-day.percent,-99999999) as diff, ROW_NUMBER() OVER (ORDER BY ABS(latest.percent-day.percent)) as ordernum
 	from "test"."latest"
@@ -269,9 +269,17 @@ func athenaToMoversByCode(row *athena.Row) (interface{}, error) {
 func (t *Topmoversingestor) generateViews() {
 	timeSlots := make([]int, 0, 4)
 	names := []string{"year", "month", "week", "day", "latest"}
-	now := time.Now()
+
+	//Get the last ingested data
+	resp, err := t.Clients.GetItemByPartDynamoDB(&awsutil.DynamoDBItemQuery{TableName: "lastUpdate", PartitionName: "latestDate", PartitionKey: "name_id"})
+	if err != nil {
+		//TODO determine what to do with error logic here
+	}
+	latestDate := *resp["date"].S
+	now, err := time.Parse("20060102", latestDate)
 	for i := 0; i <= 4; i++ {
-		timeSlots = append(timeSlots, timeslotutil.GetPreviousDate(i, now))
+		//Ensure the timeslot lands on a weekdayn with data
+		timeSlots = append(timeSlots, timeslotutil.GetPreviousWeekdayDate(i, now))
 	}
 
 	for i, timeVal := range timeSlots {
