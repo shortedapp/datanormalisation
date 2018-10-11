@@ -615,7 +615,6 @@ func (client *ClientsStruct) WriteToDynamoDB(tableName string, data interface{},
 	return nil
 }
 
-//TODO Clean this up
 func updateDynamoWriteUnits(clients AwsUtiler, tableName string, write int64) (int64, int64) {
 	readUnits, writeUnits := clients.GetDynamoDBTableThroughput(tableName)
 	err := clients.UpdateDynamoDBTableCapacity(tableName, readUnits, write)
