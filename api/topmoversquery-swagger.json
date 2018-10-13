@@ -1,0 +1,144 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/topmovers": {
+      "get": {
+        "description": "Returns the top X movers",
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "Handler",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int32",
+            "description": "maximum number of results to return",
+            "name": "number",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fetch Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/OrderedTopMovers"
+              }
+            }
+          },
+          "400": {
+            "description": "result"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CodedResultsJSON": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CodedTopMovers"
+          },
+          "x-go-name": "Result"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/moversdata"
+    },
+    "CodedTopMovers": {
+      "description": "MoversByCode",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "dayChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "DayChange"
+        },
+        "monthChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MonthChange"
+        },
+        "weekChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "WeekChange"
+        },
+        "yearChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "YearChange"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/moversdata"
+    },
+    "OrderedResultsJSON": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderedTopMovers"
+          },
+          "x-go-name": "Result"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/moversdata"
+    },
+    "OrderedTopMovers": {
+      "description": "OrderedTopMovers",
+      "type": "object",
+      "properties": {
+        "dayChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "DayChange"
+        },
+        "dayCode": {
+          "type": "string",
+          "x-go-name": "DayCode"
+        },
+        "monthChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MonthChange"
+        },
+        "monthCode": {
+          "type": "string",
+          "x-go-name": "MonthCode"
+        },
+        "order": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Order"
+        },
+        "weekChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "WeekChange"
+        },
+        "weekCode": {
+          "type": "string",
+          "x-go-name": "WeekCode"
+        },
+        "yearChange": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "YearChange"
+        },
+        "yearCode": {
+          "type": "string",
+          "x-go-name": "YearCode"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/moversdata"
+    }
+  }
+}

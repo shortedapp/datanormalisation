@@ -90,6 +90,19 @@
       },
       "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
     },
+    "CombinedResultJSON": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CombinedShortJSON"
+          },
+          "x-go-name": "Result"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
     "CombinedShortJSON": {
       "description": "CombinedShortJSON - JSON structure for combined ASIC short data and ASX code information",
       "type": "object",
@@ -155,6 +168,31 @@
         "name": {
           "type": "string",
           "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
+    },
+    "ShareMovementJSON": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "x-go-name": "Code"
+        },
+        "month": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Month"
+        },
+        "week": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Week"
+        },
+        "year": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Year"
         }
       },
       "x-go-package": "github.com/shortedapp/shortedfunctions/internal/sharedata"
