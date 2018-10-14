@@ -17,6 +17,7 @@ build:
 	swagger generate spec -m -b ./cmd/topshortquery/  -o ./api/topshortquery-swagger.json
 	swagger generate spec -m -b ./cmd/topmoversquery/  -o ./api/topmoversquery-swagger.json
 	swagger generate spec -m -b ./cmd/codedmoversquery/  -o ./api/codedmoversquery-swagger.json
+	swagger generate spec -m -b ./cmd/topshortseries/  -o ./api/topshortseries-swagger.json
 
 .PHONY: deploy
 deploy: clean build
